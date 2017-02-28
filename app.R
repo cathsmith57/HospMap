@@ -11,11 +11,11 @@ library(RColorBrewer)
 
 
 # set file paths
-path<-"N:\\Documents\\Projects\\ICONIC\\BuildingMap"
+path<-getwd()
 #path<-"C:\\Users\\Catherine\\Documents\\Work\\ICONIC\\BuildingMap"
-setwd(path)
+#setwd(path)
 #plotFolder<-"C:\\Users\\Catherine\\Documents\\Work\\ICONIC\\BuildingMap\\App8\\www\\"
-plotFolder<-"N:\\Documents\\Projects\\ICONIC\\BuildingMap\\App12\\www\\"
+plotFolder<-paste0(getwd(),"\\www\\")
 
 
 datDum<-read.csv(file=paste0(path,"\\dat.csv"))
@@ -27,7 +27,7 @@ datDum<-
 datDum$wardId<-as.character(datDum$wardId)
 
 # run app
-runApp("App12", launch.browser=T)  
+runApp(getwd(), launch.browser=T)  
 
 
 
