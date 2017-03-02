@@ -1,6 +1,10 @@
 library(leaflet)
 library(htmltools)
 library(htmlwidgets)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
 
 shinyUI(
   fluidPage(
@@ -26,7 +30,7 @@ shinyUI(
                             conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
                                              h4(strong("Number of floors")),
                                              numericInput("nFloor", label=NULL, value=1, min=1, step=1, width="75px"),
-                                             tags$style(type='text/css', '#nFloor {height: 20px;}'),
+          #                                   tags$style(type='text/css', '#nFloor {height: 20px;}'),
           #                                   conditionalPanel(
           #                                     condition=
                                                
@@ -36,16 +40,15 @@ shinyUI(
                                              h4(strong("Assign wards to floors")),
                                              uiOutput("wardlistUi"), 
                                              uiOutput("wardlisttagUi"),
-                                             h5("Maximum beds per ward"),
-                                             tags$style(type='text/css', '#nBed {height: 20px;}'),
-                                             numericInput("nBed", label=NULL, value=12, 
-                                                          min=5, max=20, step=1, width="75px"),
-                                             actionButton("gen", "Generate plan")
+                                             actionButton("gen", "Generate plan"),
+                                             textOutput("mike")
                             )
                             ),
                      column(width=8,
                             plotOutput("schem", width="50%", height=500),
-                            tableOutput("peter")
+                            tableOutput("peter"), 
+                            imageOutput("myImage"), 
+                            textOutput("imageName")
                             )
                      )
                ),
@@ -71,10 +74,7 @@ shinyUI(
                          sliderInput('infecLen', label='Length of infectious period',
                                      min=1, max=5, value=1, step=1)
                          ),
-                   selectInput("ptId", label="Patient ID",
-                               choices=unique(datDum$ptId),
-                               selected=unique(datDum$ptId),
-                               multiple=T),
+                   uiOutput("ptidFilUi"),
                    selectInput("infec", label="Infection period", 
                                choices=c("PreAcquisition", "AcquisitionPeriod", "IncubationPeriod",
                                          "SampleDate", "InfectiousPeriod", "PostInfectious"),
@@ -89,7 +89,6 @@ shinyUI(
                    tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                    leafletOutput("map", width="100%", height=500),
                    textOutput("text")
-                   
                )
                )
       )
