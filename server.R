@@ -3,16 +3,42 @@ shinyServer(function(input, output, session) {
 # Dummy data
   
   datDum<-data.frame(
-    ptId=c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10),
+    ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
     wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","B"),
     var1=c("A","A","A","A","A","B","B","B","B","A","A","A","A","B","B","A","B","B","B","A"),
     var2=c("B","B","B","A","A","B","B","B","B","B","B","B","B","B","B","B","B","B","A","A"),
     var3=c("B","B","B","A","A","B","B","A","A","A","A","A","A","A","B","B","A","A","A","B"),
-    dayIn=as.numeric(c(2,7,13,3,12,2,7,18,20,4,18,21,5,9,14,5,2,19,7,7)),
-    dayOut=as.numeric(c(7,13,17,12,20,7,18,20,25,18,21,28,11,14,19,17,19,27,25,25)),
-    samp=as.numeric(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
+    dayIn=as.integer(c(2,7,13,3,12,2,7,18,20,4,18,21,5,9,14,5,2,19,7,7)),
+    dayOut=as.integer(c(7,13,17,12,20,7,18,20,25,18,21,28,11,14,19,17,19,27,25,25)),
+    samp=as.integer(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
   )
   
+  
+  # Disable generate plan button if wards are assigned to multiple floors 
+  
+  observe({
+    toggleState("gen", anyDuplicated(
+      unlist(
+        lapply(1:input$nFloor, function(i){
+          input[[paste0("floor",i)]]
+        })
+      )
+    )==0 & 
+      length(
+        unlist(
+          lapply(1:input$nFloor, function(i){
+            input[[paste0("floor",i)]]
+          })
+        )
+      )>=1
+    )
+  })
+  
+ # Disable plan tab until plan is generated
+  
+  observe({
+    toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0)
+  })
   
   
 # Dynamic UI elements 
@@ -57,10 +83,18 @@ shinyServer(function(input, output, session) {
     if(is.null(inFile)){
       as.data.frame(datDum)
     } else {
-      as.data.frame(read.csv(inFile$datapath, header=T))
+      as.data.frame(read.csv(inFile$datapath, header=T, stringsAsFactors=F))
     }
     
   })
+  
+  # Display preview of data
+  
+  output$previewDat<-renderTable(
+    if(!(is.null(input$file1) & input$datrad=="user")){
+      head(dat())
+    }
+    )
   
   # Update inputs in response to loading user data
 
@@ -107,9 +141,10 @@ shinyServer(function(input, output, session) {
     })
   
 
-  # update ward selectors so can't choose the same one on multiple floors
+  # generate error message if try to put same ward on multiple floors
+  ## or if no wards selected
     
-  output$mike<-renderText({
+  output$warn<-renderText({
     req(input$datrad=="dum" | !is.null(input$file1))
     req(input$wardid)
     validate(
@@ -120,43 +155,19 @@ shinyServer(function(input, output, session) {
                 input[[paste0("floor",i)]]
               })
             )
-        )==0, "Please select each ward only once"
+        )==0, "Please select each ward only once"),
+      need(
+        length(
+          unlist(
+            lapply(1:input$nFloor, function(i){
+              input[[paste0("floor",i)]]
+            })
+          )
+        )>=1, "Please select at least one ward")
       )
-    )
-#   "Wards selected"
-    
   })
   
 
-
-  
-    
-  
-  #  
-#observe({
-#  req(input$datrad=="dum" | !is.null(input$file1))
-#  req(input$wardid)
-#  
-#  lapply(1:input$nFloor, function(i){
-#    updateSelectizeInput(session, 
-#                         inputId=paste0("floor",i),
-#                         choices=unique(dat()[,input$wardid])[which(!unique(dat()[,input$wardid]) %in% wardsChosen())]
-#                         
-#    )
-
-#  })
-  
-  
-  
-#})
-    
-  
-
-  
-  
-  
-  
-  
   # set columns with each data item
   ### if dummy data loaded, select appropriate col
   output$ptidUi<-renderUI({
@@ -251,6 +262,23 @@ shinyServer(function(input, output, session) {
      }
   })
   
+  # Validate the inputs variables selected
+  
+  output$warn1<-renderText({
+    req(input$datrad=="dum" | !is.null(input$file1))
+    req(input$wardid)
+    validate(
+      need(
+        input$dayin<=input$dayout, 
+        "Day in must not be after day out"
+      )
+    )
+
+  })
+  
+  
+  
+ 
 
 # Observer - 'generate plan' button or 'update' button
   
@@ -276,7 +304,7 @@ shinyServer(function(input, output, session) {
             lapply(unique(datNam$wardId), function(j){
               max(plyr::count(
                 unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
-                  seq(datNam[datNam$wardId==j, "dayIn"][i], datNam[datNam$wardId==j, "dayOut"][i])
+                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1))
                 }))
               )$freq)
             })
@@ -354,7 +382,6 @@ shinyServer(function(input, output, session) {
         wardIdLookUp<-data.frame(
           id=seq(1:nrow(plan)),
           wardId=unique(datNam$wardId)
- #         wardId=LETTERS[1:nrow(plan)]
         )
         
         
@@ -539,8 +566,6 @@ myImage<-renderImage({
         
         ## scale by 100 so that it isn't stupidly small
         bounds<-bounds*100
-        
-        output$peter<-renderTable(wardIdLookUp)
         
         ## also change the coordinates
         leafCoord<-

@@ -5,9 +5,12 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
+library(shinyjs)
 
 shinyUI(
+
   fluidPage(
+    useShinyjs(),
     tabsetPanel(id="pan",
       tabPanel(title="Input", value="panIn",
                br(),
@@ -30,23 +33,17 @@ shinyUI(
                             conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
                                              h4(strong("Number of floors")),
                                              numericInput("nFloor", label=NULL, value=1, min=1, step=1, width="75px"),
-          #                                   tags$style(type='text/css', '#nFloor {height: 20px;}'),
-          #                                   conditionalPanel(
-          #                                     condition=
-                                               
-                                               
-                                               
-           #                                  )
                                              h4(strong("Assign wards to floors")),
                                              uiOutput("wardlistUi"), 
                                              uiOutput("wardlisttagUi"),
                                              actionButton("gen", "Generate plan"),
-                                             textOutput("mike")
+                                             textOutput("warn"),
+                                             textOutput("warn1")
                             )
                             ),
                      column(width=8,
                             plotOutput("schem", width="50%", height=500),
-                            tableOutput("peter"), 
+                            tableOutput("previewDat"), 
                             imageOutput("myImage"), 
                             textOutput("imageName")
                             )
