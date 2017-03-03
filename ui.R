@@ -18,7 +18,9 @@ shinyUI(
                      column(width=2,
                             radioButtons("datrad", label="", 
                                          choices=c("Upload data"= "user", "Load dummy data"="dum")),
-                            fileInput('file1', label=NULL, accept=c("csv")),
+                            conditionalPanel(condition="input.datrad=='user'",
+                                             fileInput('file1', label=NULL, accept=c("csv"))
+                                             ),
                             conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
                                              h4(strong("Identify variables")),
                                              uiOutput("ptidUi"),
@@ -42,7 +44,7 @@ shinyUI(
                             )
                             ),
                      column(width=8,
-                            plotOutput("schem", width="50%", height=500),
+          #                  plotOutput("schem", width="50%", height=500),
                             tableOutput("previewDat"), 
                             imageOutput("myImage"), 
                             textOutput("imageName")
