@@ -5,6 +5,7 @@ shinyServer(function(input, output, session) {
   datDum<-data.frame(
     ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
     wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","B"),
+    floor=as.integer(c(2,1,2,2,1,1,2,1,2,2,2,1,1,2,1,1,1,2,2,2)),
     var1=c("A","A","A","A","A","B","B","B","B","A","A","A","A","B","B","A","B","B","B","A"),
     var2=c("B","B","B","A","A","B","B","B","B","B","B","B","B","B","B","B","B","B","A","A"),
     var3=c("B","B","B","A","A","B","B","A","A","A","A","A","A","A","B","B","A","A","A","B"),
@@ -14,28 +15,13 @@ shinyServer(function(input, output, session) {
   )
   
   
-  # Disable generate plan button if wards are assigned to multiple floors 
-  ## or if no wards selected
-  ## or if other values not selected
+  # Disable generate plan button if variables not selected
   
   observe({
-    toggleState("gen", anyDuplicated(
-      unlist(
-        lapply(1:input$nFloor, function(i){
-          input[[paste0("floor",i)]]
-        })
-      )
-    )==0 & 
-      length(
-        unlist(
-          lapply(1:input$nFloor, function(i){
-            input[[paste0("floor",i)]]
-          })
-        )
-      )>=1 &
-    input$ptid!="" & input$wardid!="" & input$dayin!="" & input$dayout!="" & input$sampledat!="" &
+    toggleState("gen",
+    input$ptid!="" & input$wardid!="" & input$floor!="" & input$dayin!="" & input$dayout!="" & input$sampledat!="" &
       anyDuplicated(c(
-        input$ptid, input$wardid, input$dayin, input$dayout,
+        input$ptid, input$wardid, input$floor, input$dayin, input$dayout,
         input$sampledat, input$catvars
       )
       )==0
@@ -54,7 +40,7 @@ shinyServer(function(input, output, session) {
 
   ## Aspect ratio slider
   output$aspSliderUi<-renderUI({
-    args<-list(inputId="asp", label=NULL, ticks=c("Wider", "Wider", "Equal", "Taller", "Taller"), 
+    args<-list(inputId="asp", label="Aspect ratio", ticks=c("Wider", "Wider", "Equal", "Taller", "Taller"), 
                value="2")
     args$min<-1
     args$max<-length(args$ticks)
@@ -94,6 +80,7 @@ shinyServer(function(input, output, session) {
     }
     
   })
+
   
   # Display preview of data
   
@@ -130,6 +117,22 @@ shinyServer(function(input, output, session) {
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
+  })
+  
+  output$floorUi<-renderUI({
+    if(input$datrad=="dum" | is.null(input$file1)){
+      selectizeInput('floor', label="Floor",
+                     choices=names(dat()), selected="floor")
+      
+    } else {
+      selectizeInput('floor', label="Floor", 
+                     choices=names(dat()),
+                     options=list(
+                       placeholder="Select variable", 
+                       onInitialize = I('function() {this.setValue("");}')
+                     ))
+    }
+    
   })
   
   output$dayinUi<-renderUI({
@@ -200,88 +203,20 @@ shinyServer(function(input, output, session) {
 
 
   # Update inputs in response to loading user data
-  
-  ## Populate ward selectors
-  
-  observe({
-    if(input$datrad=="dum" | is.null(input$file1) ){
-      updateNumericInput(session, inputId="nFloor", value=2)
-    } else{
-      updateNumericInput(session, inputId="nFloor", value=1)
-    }
-  })
-  
-  observe({
-#    req(input$datrad=="dum" | is.null(input$file1))
-#    req(input$wardid)
-    
-    if(input$datrad=="dum" | is.null(input$file1) ){
-  #    if(length(input$wardid)==1){
-        output$wardlistUi<-renderUI({
-          lapply(1:input$nFloor, function(i){
-            selectizeInput(inputId=paste0("floor",i),
-                           label=paste0("Floor ",i),
-                         #       choices=unique(dat()[,"wardId"]),
-                           choices=unique(dat()[,input$wardid]),
-                           multiple=T
-            )
-            
-          })
-        })
-        updateSelectizeInput(session, inputId="floor1", selected=c("A", "B"))
-        updateSelectizeInput(session, inputId="floor2", selected=c("C"))      
-        
 
-    } else {
-      
-      output$wardlistUi<-renderUI({
-        lapply(1:input$nFloor, function(i) {
-          selectizeInput(inputId=paste0("floor",i),
-                         label=paste0("Floor ",i),
-                         choices=unique(dat()[,input$wardid]),
-                         multiple=T,
-                         options=list(
-                           placeholder="Select wards",
-                           onInitialize = I('function() { this.setValue(""); }')))
-        })
-      })
-    }
-    
-  })
-  
-  
   # validate inputs - generate error messages 
   output$warn<-renderText({
     req(input$datrad=="dum" | !is.null(input$file1))
     req(input$wardid)
     validate(
-      ## if same ward on multiple floors
-      need(
-        anyDuplicated(
-          unlist(
-            lapply(1:input$nFloor, function(i){
-              input[[paste0("floor",i)]]
-            })
-          )
-        )==0, "Please select each ward only once"),
-      
-      ## if no wards selected
-     need(
-        length(
-          unlist(
-            lapply(1:input$nFloor, function(i){
-              input[[paste0("floor",i)]]
-            })
-          )
-        )>=1, "Please select at least one ward"),
-     ## same variable selected for >1 field
+     ## variables not selected
     need(input$ptid!="" & input$wardid!="" & input$dayin!="" &
            input$dayout!="" & input$sampledat!="",
          "Please select variables"),
+    ## same variable selected for >1 field
     if(input$ptid!="" & input$wardid!="" & input$dayin!="" &
        input$dayout!="" & input$sampledat!=""){
     need(
-      
         anyDuplicated(c(
           input$ptid, input$wardid, input$dayin, input$dayout,
           input$sampledat, input$catvars
@@ -292,9 +227,18 @@ shinyServer(function(input, output, session) {
        input$dayin<=input$dayout, 
        "Day in must not be after day out"
      )
-     
     )
   })
+  
+  # wards to display in plan
+  output$wardFilUi<-renderUI({
+    selectInput('wardFil', label="Display wards",
+                choices=unique(dat()[,input$wardid]),
+                selected=unique(dat()[,input$wardid]),
+                multiple=T)
+    
+  })
+  
   
 
 # Observer - 'generate plan' button or 'update' button
@@ -302,24 +246,45 @@ shinyServer(function(input, output, session) {
     observeEvent({
       input$goagain
       input$gen}, {
+ 
+        # exclude data for wards not selected in the plan
+        if(input$gen==1 & input$goagain==0){
+          datWard<-reactive({
+            dat()
+          })
+        } else {
+          datWard<-reactive({
+            datWard1<-dat()
+            datWard1[which(datWard1[,input$wardid]%in%input$wardFil),]
+          })
+        }
+      
       
       # rename the variables in dat for assigned cols to generic
-      datNam<-dat()
+      datNam<-datWard()
       colnames(datNam)[which(colnames(datNam)==input$ptid)]="ptId"
-      colnames(datNam)[which(colnames(datNam)==input$wardid)]="wardId"  
+      colnames(datNam)[which(colnames(datNam)==input$wardid)]="wardId" 
+      colnames(datNam)[which(colnames(datNam)==input$floor)]="floor"
       colnames(datNam)[which(colnames(datNam)==input$dayin)]="dayIn"  
       colnames(datNam)[which(colnames(datNam)==input$dayout)]="dayOut"  
       colnames(datNam)[which(colnames(datNam)==input$sampledat)]="samp"  
       
-      # exclude data for wards not selected in the plan
-      datNam<-
-        datNam %>%
-        filter(wardId %in% unlist(
-          lapply(1:input$nFloor, function(i){
-            input[[paste0("floor",i)]]
-          })
-        ))
+      # format day in, out, sample as numeric
+      datNam$dayIn<-as.numeric(datNam$dayIn)
+      datNam$dayOut<-as.numeric(datNam$dayOut)
+      datNam$samp<-as.numeric(datNam$samp)
+      
+      # format categorical vars as factors
+      if(length(input$catvars)>=1){
+        lapply(input$catvars, function(i){
+          datNam[,i]<<-as.factor(datNam[,i])
+        })
+      }
+      
      
+       output$imageName<-renderText(input$wardFil)
+
+
       # calc largest number of cases on a ward on any day
       
       maxCases<-
@@ -380,31 +345,33 @@ shinyServer(function(input, output, session) {
         
         
         ## Floor/ ward plan - coordinates
-        plan<-data.frame(
-          floor=unlist(
-            lapply(1:input$nFloor, function(i){
-              rep(i,length(input[[paste0("floor",i)]]))
-              #          rep(i,input[[paste0("floor",i)]])
-            })
-          )
-        )
+        datNam$nFloor<-NA
+        flrs<-seq(1:length(unique(datNam$floor)))
+        lapply(1:length(unique(datNam$floor)), function(i){
+          j<-flrs[i]
+          k<-unique(datNam$floor)[i]
+          datNam$nFloor[datNam$floor==k]<<-j
+        })
+
+        
+        plan <-
+          datNam %>%
+          select(wardId, nFloor) %>%
+          distinct() %>%
+          arrange(nFloor)
+
         plan$id<-seq(1:nrow(plan))
         
         # ward ids
         wardIdLookUp<-data.frame(
-          id=seq(1:nrow(plan)),
-          wardId=unlist(
-            lapply(1:input$nFloor, function(i){
-              input[[paste0("floor",i)]]
-            })
+          id=plan$id,
+          wardId=plan$wardId
           )
-#          wardId=unique(datNam$wardId)
-        )
-        
+
         
         plan<-
           plan %>%
-          group_by(floor) %>%
+          group_by(nFloor) %>%
           dplyr::mutate(totWard=length(id)) %>%
           dplyr::mutate(wardN=seq(1:length(id))) %>%
           dplyr::mutate(xMin=(wardN*wardWid)-wardWid+0.2) %>%
@@ -412,8 +379,8 @@ shinyServer(function(input, output, session) {
         
         plan<-
           plan %>%
-          dplyr::mutate(yMin=(floor*wardHt)-wardHt+0.2) %>%
-          dplyr::mutate(yMax=floor*wardHt) %>%
+          dplyr::mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
+          dplyr::mutate(yMax=nFloor*wardHt) %>%
           dplyr::mutate(x1=xMin) %>%
           dplyr::mutate(x2=xMin) %>%
           dplyr::mutate(x3=xMax) %>%
@@ -437,14 +404,14 @@ shinyServer(function(input, output, session) {
         
         ## Labels for floors 
         floorLab<-data.frame(
-          floor=1:input$nFloor,
-          lab=paste0("Floor ", 1:input$nFloor),
+          nFloor=unique(datNam$nFloor),
+          lab=paste0("Floor ", unique(datNam$floor)),
           x=-1)
         
         floorLab<-
           floorLab %>%
-          dplyr::mutate(yMin=(floor*wardHt)-wardHt+0.2) %>%
-          dplyr::mutate(yMax=floor*wardHt) %>%
+          dplyr::mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
+          dplyr::mutate(yMax=nFloor*wardHt) %>%
           dplyr::mutate(y=yMin+((yMax-yMin)/2))
         
         ## Polygon to left of floor plan to place floor labels into
@@ -541,10 +508,8 @@ plImage<-renderImage({
    plName<-tempfile(fileext='.png')
    
       png(filename=plName,    
- #     png(filename=paste0("www\\",plName), 
             width=aspPr*500, 
             height=500, units="px")  
- 
           print(
             ggplot(pol, aes(x=x, y=y)) + 
               geom_polygon(aes(group=id), fill="white", col="black") +
@@ -571,9 +536,7 @@ plImage<-renderImage({
         dev.off()
         
         list(src=plName, contentType="image/png", width=aspPr*500, height=500, alt="altText")
-        
-        
-        
+    
  }, deleteFile=T)
 
       plPath<-plImage(session)$src
@@ -703,6 +666,7 @@ plImage<-renderImage({
         
         
         ## assign colours to data
+       
         datCol<-reactive({
           datCol1<-datInf()
           if(input$pl=="infec"){
@@ -711,18 +675,21 @@ plImage<-renderImage({
             )
             factpal<-colorFactor(cols, datCol1$infec)
             datCol1$col<-factpal(datCol1$infec)
+
           } else if(input$pl!=""){
-            colRamp<-colorRampPalette(brewer.pal(9, "Set1"))
-            cols<-colRamp(length(unique(datCol1$ptId)))
-            factpal <- colorFactor(cols, datCol1[,"ptId"])
+            suppressWarnings(
+              colRamp<-colorRampPalette(brewer.pal(length(levels(datCol1[,input$pl])), "Set1"))
+            )
+            cols<-colRamp(length(levels(datCol1[,input$pl])))
+            factpal <- colorFactor(cols, datCol1[,input$pl])
             datCol1$col<- factpal(datCol1[,input$pl])
-          } 
-          else {
+          }           else {
             datCol1$col<-"black"
           }
           datCol1
           
         })
+        
         
         
         ## filter data by day 
@@ -771,7 +738,7 @@ plImage<-renderImage({
               
             } else if(input$pl!="" & input$pl!="selvar") {
               map %>% addLegend(position="bottomright", colors=unique(datCol()$col),
-                                labels=unique(datCol()[,input$pl]), opacity=1)
+                                labels=levels(datCol()[,input$pl]), opacity=1)
             }
           }
           
