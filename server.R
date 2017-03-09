@@ -208,6 +208,8 @@ shinyServer(function(input, output, session) {
   output$warn<-renderText({
     req(input$datrad=="dum" | !is.null(input$file1))
     req(input$wardid)
+    req(input$dayin)
+    req(input$catvars)
     validate(
      ## variables not selected
     need(input$ptid!="" & input$wardid!="" & input$dayin!="" &
@@ -282,7 +284,7 @@ shinyServer(function(input, output, session) {
       }
       
      
-       output$imageName<-renderText(input$wardFil)
+ #      output$imageName<-renderText(input$wardFil)
 
 
       # calc largest number of cases on a ward on any day

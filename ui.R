@@ -29,37 +29,39 @@ body <- dashboardBody(
   useShinyjs(),
   tabItems(
     tabItem(tabName = "panIn",
-            h2("Load data"),
             fluidRow(
-              column(width=2,
-                     radioButtons("datrad", label="", 
-                                  choices=c("Upload data"= "user", "Load dummy data"="dum")),
-                     conditionalPanel(condition="input.datrad=='user'",
-                                      fileInput('file1', label=NULL, accept=c("csv"))
+              box(title="Load data", status="primary", solidHeader=TRUE,
+                radioButtons("datrad", label="", 
+                             choices=c("Upload data"= "user", "Load dummy data"="dum")),
+                conditionalPanel(condition="input.datrad=='user'",
+                                 fileInput('file1', label=NULL, accept=c("csv"))
+                )),
+              tabBox(title="Identify variables",
+                     tabPanel(title="Identifiers", value="idTab",
+                              conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
+                              uiOutput("ptidUi"),
+                              uiOutput("wardidUi"))  
                      ),
-                     conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                      h4(strong("Identify variables")),
-                                      uiOutput("ptidUi"),
-                                      uiOutput("wardidUi"),
-                                      uiOutput("floorUi"),
-                                      uiOutput("dayinUi"),
-                                      uiOutput("dayoutUi"),
-                                      uiOutput("sampledateUi"),
-                                      uiOutput("catvarUi")
-                     )
+                     tabPanel(title="Variables", value="varTab",
+                              conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
+                              uiOutput("floorUi"),
+                              uiOutput("dayinUi"),
+                              uiOutput("dayoutUi"),
+                              uiOutput("sampledateUi"),
+                              uiOutput("catvarUi")
+                              )
+                              )
+                ),
+              box(background="light-blue",
+                actionButton("gen", "Generate plan"),
+                textOutput("warn"),
+                textOutput("warn1")
               ),
-              column(width=2,
-                     conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                      actionButton("gen", "Generate plan"),
-                                      textOutput("warn"),
-                                      textOutput("warn1")
-                     )
-              ),
-              column(width=8,
-                      plotOutput("schem", width="50%", height=500),
-                     tableOutput("previewDat"), 
-                     imageOutput("myImage"), 
-                     textOutput("imageName")
+              box(title="Preview data", status="info", solidHeader=TRUE,
+         #       plotOutput("schem", width="50%", height=500),
+                tableOutput("previewDat") 
+              #  imageOutput("myImage"), 
+              #  textOutput("imageName")
               )
             )
     ),
