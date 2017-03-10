@@ -19,7 +19,7 @@ shinyServer(function(input, output, session) {
   
   observe({
     toggleState("gen",
-    input$ptid!="" & input$wardid!="" & input$floor!="" & input$dayin!="" & input$dayout!="" & input$sampledat!="" &
+    input$ptid!="" & input$wardid!="" & input$dayin!="" & input$dayout!="" & input$sampledat!="" &
       anyDuplicated(c(
         input$ptid, input$wardid, input$floor, input$dayin, input$dayout,
         input$sampledat, input$catvars
@@ -134,6 +134,7 @@ shinyServer(function(input, output, session) {
     }
     
   })
+  outputOptions(output, "floorUi", suspendWhenHidden = FALSE)
   
   output$dayinUi<-renderUI({
     if(input$datrad=="dum"){
@@ -147,6 +148,7 @@ shinyServer(function(input, output, session) {
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
+  outputOptions(output, "dayinUi", suspendWhenHidden = FALSE)
   
   output$dayoutUi<-renderUI({
     if(input$datrad=="dum"){
@@ -160,6 +162,8 @@ shinyServer(function(input, output, session) {
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
+  outputOptions(output, "dayoutUi", suspendWhenHidden = FALSE)
+  
   
   output$sampledateUi<-renderUI({
     if(input$datrad=="dum"){
@@ -174,6 +178,9 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  outputOptions(output, "sampledateUi", suspendWhenHidden = FALSE)
+  
+  
   output$catvarUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('catvars', label='Categorical variables', 
@@ -187,6 +194,8 @@ shinyServer(function(input, output, session) {
     }
   })
 
+  outputOptions(output, "catvarUi", suspendWhenHidden = FALSE)
+  
 
   output$filVarsUi<-renderUI({
      if(length(input$catvars)>=1){
@@ -200,6 +209,7 @@ shinyServer(function(input, output, session) {
        })
      }
   })
+  outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
 
 
   # Update inputs in response to loading user data
@@ -228,7 +238,14 @@ shinyServer(function(input, output, session) {
      need(
        input$dayin<=input$dayout, 
        "Day in must not be after day out"
-     )
+     ),
+    if(input$floor!=""){
+      need(
+        is.numeric(dat()[,input$floor]), 
+        "Floor must be numeric"
+      )
+    }
+
     )
   })
   
@@ -284,9 +301,6 @@ shinyServer(function(input, output, session) {
       }
       
      
- #      output$imageName<-renderText(input$wardFil)
-
-
       # calc largest number of cases on a ward on any day
       
       maxCases<-
@@ -320,6 +334,8 @@ shinyServer(function(input, output, session) {
       
     })
     
+    outputOptions(output, 'ptidFilUi', suspendWhenHidden=FALSE)
+    
 
     ## update pl input
     updateSelectizeInput(session, "pl", choices=c(
@@ -347,15 +363,28 @@ shinyServer(function(input, output, session) {
         
         
         ## Floor/ ward plan - coordinates
-        datNam$nFloor<-NA
-        flrs<-seq(1:length(unique(datNam$floor)))
-        lapply(1:length(unique(datNam$floor)), function(i){
-          j<-flrs[i]
-          k<-unique(datNam$floor)[i]
-          datNam$nFloor[datNam$floor==k]<<-j
-        })
-
         
+        
+        if(input$floor==""){
+          flrs<-data.frame(
+            wardId=unique(datNam$wardId),
+            nFloor=rep(1:round(length(unique(datNam$wardId))/2),each=2)[1:length(unique(datNam$wardId))]
+          )
+          datNam<-
+            left_join(datNam, flrs, by="wardId")
+          output$testTab<-renderTable({flrs})
+          
+        } else {
+          datNam$nFloor<-NA
+          flrs<-seq(1:length(unique(datNam$floor)))
+          lapply(1:length(unique(datNam$floor)), function(i){
+            j<-flrs[i]
+            k<-unique(datNam$floor)[i]
+            datNam$nFloor[datNam$floor==k]<<-j
+          })
+        }
+        
+ 
         plan <-
           datNam %>%
           select(wardId, nFloor) %>%
@@ -390,7 +419,9 @@ shinyServer(function(input, output, session) {
           dplyr::mutate(y1=yMin) %>%
           dplyr::mutate(y2=yMax) %>%
           dplyr::mutate(y3=yMax) %>%
-          dplyr::mutate(y4=yMin) 
+          dplyr::mutate(y4=yMin) %>%
+          dplyr::mutate(xMid=(xMin+xMax)/2) %>%
+          dplyr::mutate(yMid=(yMin+yMax)/2)
         
         ## Convert coordinates to polygons for plotting
         pol <-
@@ -403,6 +434,7 @@ shinyServer(function(input, output, session) {
         
         pol<-pol[,c("id","x","y")]
         pol<-arrange(pol, id)
+      
         
         ## Labels for floors 
         floorLab<-data.frame(
@@ -465,53 +497,19 @@ shinyServer(function(input, output, session) {
           dplyr::mutate(y=yMin+(((yMax-yMin)/nRows)*rowN)-(((yMax-yMin)/nRows)/2))              
         
         
-        ## Plot floor plan - ggplot
-  
-        output$schem<-renderPlot(
-          if(!(is.null(input$file1) & input$datrad=="user")){
-            ggplot(pol, aes(x=x, y=y)) + 
-              geom_polygon(aes(group=id), fill="white", col="black") +
-              geom_polygon(dat=labelPol, aes(x=x,y=y), fill="white", col="white")+
-              scale_y_continuous(expand=c(0,0), limits=c(min(plan$yMin)-0.2, max(plan$yMax)+0.2))+
-              scale_x_continuous(expand=c(0,0), limits=c(min(plan$xMin)-0.2-2, max(plan$xMax)+0.2))+
-              geom_label(data=floorLab, aes(x=x, y=y, label=lab))+
-              geom_point(data=datCoord, aes(x=x,y=y))+
-              theme(
-                legend.position="none",
-                axis.text=element_blank(),
-                panel.grid.major = element_blank(),
-                panel.grid.minor = element_blank(),
-                axis.title=element_blank(),
-                axis.ticks=element_blank(), 
-                plot.margin = unit(c(0,0,0,0), "mm"),
-                axis.line=element_blank(),
-                axis.ticks.length = unit(0, "mm"), 
-                panel.background = element_rect(fill="#F0F0F0"),
-                panel.border = element_rect(fill=NA, colour =NA, size=1, inherit.blank = F)
-              )+
-              labs(x=NULL,y=NULL) +
-              coord_equal()  
-          }
-        )
-        
+        # Image to be used as background for plan
 
-        
-        # save png of the floor plan to use as leaflet base map
         ## aspect ratio of plan
         aspPr<-(max(plan$xMax)+0.2)/(max(plan$yMax)+0.2)
-        #   aspPr<-(max(plan$xMax)+0.2+2)/(max(plan$yMax)+0.2)
-        
-        ## change name of plan depending on click of action button
-#        plName<-paste0("build", input$gen, ".png")
+
+        ## name of file
         plName<-tempfile(fileext='.png')
-#        plotFolder<-paste0(getwd(),"www\\")
-      
-plImage<-renderImage({
-   plName<-tempfile(fileext='.png')
-   
-      png(filename=plName,    
-            width=aspPr*500, 
-            height=500, units="px")  
+        plImage<-renderImage({
+          plName<-tempfile(fileext='.png')
+          
+          png(filename=plName,    
+              width=aspPr*500, 
+              height=500, units="px")  
           print(
             ggplot(pol, aes(x=x, y=y)) + 
               geom_polygon(aes(group=id), fill="white", col="black") +
@@ -535,12 +533,12 @@ plImage<-renderImage({
               )+
               labs(x=NULL,y=NULL, title=NULL) +
               coord_equal())
-        dev.off()
+          dev.off()
+          
+          list(src=plName, contentType="image/png", width=aspPr*500, height=500, alt="altText")
+          
+        }, deleteFile=T)
         
-        list(src=plName, contentType="image/png", width=aspPr*500, height=500, alt="altText")
-    
- }, deleteFile=T)
-
       plPath<-plImage(session)$src
 
  
@@ -551,6 +549,18 @@ plImage<-renderImage({
         
         ## scale by 100 so that it isn't stupidly small
         bounds<-bounds*100
+        
+        ## ward labels
+        wardLab<-
+          plan %>%
+          ungroup() %>%
+          select(wardId, xMid, yMid, yMax) %>%
+          mutate(xMid=xMid*100) %>%
+          mutate(yMid=yMid*100)
+#          mutate(yMid=yMid*100)
+        
+        output$polDat<-renderTable(wardLab)
+        
         
         ## also change the coordinates
         leafCoord<-
@@ -663,7 +673,8 @@ plImage<-renderImage({
                                          image.setOpacity(1);
                                          image.bringToBack();
                                          myMap.setMaxBounds(bounds);
-                                         }")) 
+                                         }"))
+            
     })
         
         
@@ -722,15 +733,25 @@ plImage<-renderImage({
           
         })
         
+        
         observe({
           if(input$pan=="panPl"){
             map<-leafletProxy("map")
             map %>% 
               clearMarkers() %>%
               clearControls() %>%
-              addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=6, color="black",
+              addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=8, color="black",
                                weight=1, fillOpacity=1, layerId=~ptId) 
             
+            if(input$wardLabShow==TRUE){
+              map %>% addLabelOnlyMarkers(data=wardLab, lng=~xMid, lat=~yMid, label=~htmlEscape(wardId),
+                                    labelOptions=labelOptions(noHide=T,offset=c(0,-10), textOnly=T, 
+                                                              style = list(
+                                                                "color" = "#3c8dbc",
+                                                                "font-size" = "15px")
+                                                              )
+                                    )}
+             
             if(input$pl=="infec"){
               map %>% addLegend(position="bottomright", 
                                 colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
