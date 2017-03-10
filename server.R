@@ -14,6 +14,19 @@ shinyServer(function(input, output, session) {
     samp=as.integer(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
   )
   
+  genDum<-data.frame(
+    ptId1=rep(1:10, each=9),
+    ptId2=c(2,3,4,5,6,7,8,9,10,1,3,4,5,6,7,8,9,10,1,2,4,5,6,7,8,9,10,1,2,3,5,6,7,8,9,10,1,
+            2,3,4,6,7,8,9,10,1,2,3,4,5,7,8,9,10,1,2,3,4,5,6,8,9,10,1,2,3,4,5,6,7,9,10,1,2,
+            3,4,5,6,7,8,10,1,2,3,4,5,6,7,8,9),
+    dist=c(0.1,0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.75,0.1,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.65,0.2,
+           0.1,0.05,0.1,0.2,0.3,0.4,0.5,0.55,0.25,0.15,0.05,0.05,0.15,0.25,0.35,0.45,0.5,0.3,
+           0.2,0.1,0.05,0.1,0.2,0.3,0.4,0.45,0.4,0.3,0.2,0.15,0.1,0.1,0.2,0.3,0.35,0.5,0.4,0.3,
+           0.25,0.2,0.1,0.1,0.2,0.25,0.6,0.5,0.4,0.35,0.3,0.2,0.1,0.1,0.15,0.7,0.6,0.5,0.45,
+           0.4,0.3,0.2,0.1,0.05,0.75,0.65,0.55,0.5,0.45,0.35,0.25,0.15,0.05)
+    )
+  
+  
   
   # Disable generate plan button if variables not selected
   
@@ -195,7 +208,7 @@ shinyServer(function(input, output, session) {
   })
 
   outputOptions(output, "catvarUi", suspendWhenHidden = FALSE)
-  
+ 
 
   output$filVarsUi<-renderUI({
      if(length(input$catvars)>=1){
@@ -257,6 +270,86 @@ shinyServer(function(input, output, session) {
                 multiple=T)
     
   })
+  
+  
+  # Genetic distance data
+  
+  genUser<-reactive({
+    if(is.null(input$fileGen)){
+      return(NULL)
+    } else {
+      return(TRUE)
+    }
+  })
+  
+  output$genFileUploaded <- reactive({
+    return(!is.null(genUser()))
+  })
+  outputOptions(output, 'genFileUploaded', suspendWhenHidden=FALSE)
+  
+  
+  genDat<-reactive({
+    inFileG <- input$fileGen
+    if(is.null(inFileG) | input$datrad=="dum"){
+      as.data.frame(genDum)
+    } else {
+      as.data.frame(read.csv(inFileG$datapath, header=T, stringsAsFactors=F))
+    }
+    
+  })
+  
+  
+  ## update genetic distance input if dummy data loaded
+  observe({
+    if(input$datrad=="dum"){
+      updateCheckboxInput(session, "genDis", value=TRUE)
+    }
+    if(input$datrad=="user"){
+      updateCheckboxInput(session, "genDis", value=FALSE)
+    }
+  })
+  
+  ## set appropriate columns for gen dist data 
+  
+  output$genPt1Ui<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('genPt1', label='Patient 1 identifier', 
+                     choices=names(genDat()), selected="ptId1")
+    } else {
+      selectizeInput('genPt1', label='Patient 1 identifier', 
+                     choices=names(genDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
+  output$genPt2Ui<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('genPt2', label='Patient 2 identifier', 
+                     choices=names(genDat()), selected="ptId2")
+    } else {
+      selectizeInput('genPt2', label='Patient 2 identifier', 
+                     choices=names(genDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
+  output$genPtDistUi<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('genPtDist', label='Genetic distance between patients 1 and 2', 
+                     choices=names(genDat()), selected="dist")
+    } else {
+      selectizeInput('genPtDistUi', label='Genetic distance between patients 1 and 2', 
+                     choices=names(genDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
   
   
 
@@ -342,6 +435,7 @@ shinyServer(function(input, output, session) {
       "Patient ID" = "ptId",
       "Infection period" = "infec", 
       input$catvars))
+    
  
     
     # regenerate the plan if aspect ratio is changed
@@ -372,7 +466,7 @@ shinyServer(function(input, output, session) {
           )
           datNam<-
             left_join(datNam, flrs, by="wardId")
-          output$testTab<-renderTable({flrs})
+          output$testTab<-renderTable({genDat()})
           
         } else {
           datNam$nFloor<-NA

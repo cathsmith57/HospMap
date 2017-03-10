@@ -44,7 +44,7 @@ body <- dashboardBody(
                   textOutput("warn1")
             ),
             fluidRow(
-              tabBox(title="Identify variables", side="right",
+              tabBox(title="Identify variables", side="left",
                      tabPanel(title="Identifiers", value="idTab",
                               conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
                                                uiOutput("ptidUi"),
@@ -52,7 +52,6 @@ body <- dashboardBody(
                      ),
                      tabPanel(title="Dates", value="datTab",
                               conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                               
                                                uiOutput("dayinUi"),
                                                uiOutput("dayoutUi"),
                                                uiOutput("sampledateUi"))
@@ -61,10 +60,20 @@ body <- dashboardBody(
                               conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
                                                uiOutput("floorUi"),
                                                uiOutput("catvarUi"),
-                                               uiOutput("genDisUi")
-                              )
+                                               checkboxInput("genDis", label="Use genetic distance data", value=F),
+                                               conditionalPanel(condition="input.genDis & input.datrad=='user'",
+                                                                fileInput('fileGen', label=NULL, accept=c("csv"))
+                                                                ),
+                                               conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                                uiOutput("genPt1Ui"),
+                                                                uiOutput("genPt2Ui"),
+                                                                uiOutput("genPtDistUi")
+                                                                          )
+                                                                )
+                                               )
                               
-                     )
+                              
+                     
                      
               ),
               box(title="Preview data", status="info", solidHeader=TRUE,
