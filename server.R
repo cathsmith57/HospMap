@@ -13,6 +13,7 @@ shinyServer(function(input, output, session) {
     dayOut=as.integer(c(7,13,17,12,20,7,18,20,25,18,21,28,11,14,19,17,19,27,25,25)),
     samp=as.integer(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
   )
+
   
   genDum<-data.frame(
     ptId1=rep(1:10, each=9),
@@ -393,6 +394,23 @@ shinyServer(function(input, output, session) {
         })
       }
       
+      # update select inputs to relfect catvars
+
+      if(length(input$catvars)>=1){
+        lapply(c(1:length(input$catvars)), function(i){
+          updateSelectInput(session, paste0("fil",i),
+                            choices=levels(datNam[,input$catvars[i]]),
+                            selected=levels(datNam[,input$catvars[i]]))
+        })
+        }
+
+      
+      
+    # output$text<-renderTable({genDat()})
+      
+      # format patient and ward ids as factors
+      datNam$ptId<-as.factor(datNam$ptId)
+      datNam$wardId<-as.factor(datNam$wardId)
      
       # calc largest number of cases on a ward on any day
       
@@ -404,7 +422,7 @@ shinyServer(function(input, output, session) {
                 unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
                   seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1))
                 }))
-              )$freq)
+             )$freq)
             })
           )
         )
@@ -466,7 +484,6 @@ shinyServer(function(input, output, session) {
           )
           datNam<-
             left_join(datNam, flrs, by="wardId")
-          output$testTab<-renderTable({genDat()})
           
         } else {
           datNam$nFloor<-NA

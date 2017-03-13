@@ -79,7 +79,7 @@ body <- dashboardBody(
               box(title="Preview data", status="info", solidHeader=TRUE,
                   div(style = 'overflow-x: scroll', tableOutput('previewDat'))
               ),
-              tableOutput("testTab")
+              textOutput("text")
             )
     ),
 
@@ -124,8 +124,8 @@ body <- dashboardBody(
                          uiOutput("mapInUi"),
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
                          tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
-                         leafletOutput("map", width="100%", height=500),
-                         textOutput("text")
+                         leafletOutput("map", width="100%", height=500)
+                         
                          )
               )
             )
