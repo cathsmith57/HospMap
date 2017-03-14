@@ -16,10 +16,14 @@ shinyServer(function(input, output, session) {
 
   
   genDum<-data.frame(
-    ptId1=rep(1:10, each=9),
-    ptId2=c(2,3,4,5,6,7,8,9,10,1,3,4,5,6,7,8,9,10,1,2,4,5,6,7,8,9,10,1,2,3,5,6,7,8,9,10,1,
-            2,3,4,6,7,8,9,10,1,2,3,4,5,7,8,9,10,1,2,3,4,5,6,8,9,10,1,2,3,4,5,6,7,9,10,1,2,
-            3,4,5,6,7,8,10,1,2,3,4,5,6,7,8,9),
+    ptId1=rep(paste0("pt",1:10), each=9),
+    ptId2=c("pt2","pt3","pt4","pt5","pt6","pt7","pt8","pt9","pt10","pt1","pt3","pt4","pt5","pt6",
+            "pt7","pt8","pt9","pt10","pt1","pt2","pt4","pt5","pt6","pt7","pt8","pt9","pt10","pt1",
+            "pt2","pt3","pt5","pt6","pt7","pt8","pt9","pt10","pt1","pt2","pt3","pt4","pt6","pt7",
+            "pt8","pt9","pt10","pt1","pt2","pt3","pt4","pt5","pt7","pt8","pt9","pt10","pt1","pt2",
+            "pt3","pt4","pt5","pt6","pt8","pt9","pt10","pt1","pt2","pt3","pt4","pt5","pt6","pt7",
+            "pt9","pt10","pt1","pt2","pt3","pt4","pt5","pt6","pt7","pt8","pt10","pt1","pt2","pt3",
+            "pt4","pt5","pt6","pt7","pt8","pt9"),
     dist=c(0.1,0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.75,0.1,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.65,0.2,
            0.1,0.05,0.1,0.2,0.3,0.4,0.5,0.55,0.25,0.15,0.05,0.05,0.15,0.25,0.35,0.45,0.5,0.3,
            0.2,0.1,0.05,0.1,0.2,0.3,0.4,0.45,0.4,0.3,0.2,0.15,0.1,0.1,0.2,0.3,0.35,0.5,0.4,0.3,
@@ -30,7 +34,7 @@ shinyServer(function(input, output, session) {
   
   
   # Disable generate plan button if variables not selected
-  
+
   observe({
     toggleState("gen",
     input$ptid!="" & input$wardid!="" & input$dayin!="" & input$dayout!="" & input$sampledat!="" &
@@ -39,9 +43,16 @@ shinyServer(function(input, output, session) {
         input$sampledat, input$catvars
       )
       )==0
-      
     )
+    
+    if((input$datrad=="dum" |!is.null(genUser())) & input$genDis==TRUE){
+      toggleState("gen",
+                  input$genPt1!="" & input$genPt2!="" & input$genPtDist!=""
+                  )
+    }
   })
+
+  
   
  # Disable plan tab until plan is generated
   
@@ -119,6 +130,8 @@ shinyServer(function(input, output, session) {
                        onInitialize = I('function() { this.setValue(""); }')))
   }
   })
+   
+   outputOptions(output, 'ptidUi', suspendWhenHidden=FALSE)
   
   output$wardidUi<-renderUI({
     if(input$datrad=="dum"| is.null(input$file1)){
@@ -132,6 +145,8 @@ shinyServer(function(input, output, session) {
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
+  
+  outputOptions(output, 'wardidUi', suspendWhenHidden=FALSE)
   
   output$floorUi<-renderUI({
     if(input$datrad=="dum" | is.null(input$file1)){
@@ -226,42 +241,6 @@ shinyServer(function(input, output, session) {
   outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
 
 
-  # Update inputs in response to loading user data
-
-  # validate inputs - generate error messages 
-  output$warn<-renderText({
-    req(input$datrad=="dum" | !is.null(input$file1))
-    req(input$wardid)
-    req(input$dayin)
-    req(input$catvars)
-    validate(
-     ## variables not selected
-    need(input$ptid!="" & input$wardid!="" & input$dayin!="" &
-           input$dayout!="" & input$sampledat!="",
-         "Please select variables"),
-    ## same variable selected for >1 field
-    if(input$ptid!="" & input$wardid!="" & input$dayin!="" &
-       input$dayout!="" & input$sampledat!=""){
-    need(
-        anyDuplicated(c(
-          input$ptid, input$wardid, input$dayin, input$dayout,
-          input$sampledat, input$catvars
-        )
-        )==0, "Please select each variable only once")},
-     ## Day in after day out
-     need(
-       input$dayin<=input$dayout, 
-       "Day in must not be after day out"
-     ),
-    if(input$floor!=""){
-      need(
-        is.numeric(dat()[,input$floor]), 
-        "Floor must be numeric"
-      )
-    }
-
-    )
-  })
   
   # wards to display in plan
   output$wardFilUi<-renderUI({
@@ -288,7 +267,7 @@ shinyServer(function(input, output, session) {
   })
   outputOptions(output, 'genFileUploaded', suspendWhenHidden=FALSE)
   
-  
+
   genDat<-reactive({
     inFileG <- input$fileGen
     if(is.null(inFileG) | input$datrad=="dum"){
@@ -310,6 +289,8 @@ shinyServer(function(input, output, session) {
     }
   })
   
+
+  
   ## set appropriate columns for gen dist data 
   
   output$genPt1Ui<-renderUI({
@@ -325,6 +306,9 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  outputOptions(output, "genPt1Ui", suspendWhenHidden = FALSE)
+  
+  
   output$genPt2Ui<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('genPt2', label='Patient 2 identifier', 
@@ -338,12 +322,14 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  outputOptions(output, "genPt2Ui", suspendWhenHidden = FALSE)
+  
   output$genPtDistUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('genPtDist', label='Genetic distance between patients 1 and 2', 
                      choices=names(genDat()), selected="dist")
     } else {
-      selectizeInput('genPtDistUi', label='Genetic distance between patients 1 and 2', 
+      selectizeInput('genPtDist', label='Genetic distance between patients 1 and 2', 
                      choices=names(genDat()),
                      options=list(
                        placeholder="Select variable",
@@ -351,8 +337,43 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  outputOptions(output, "genPtDistUi", suspendWhenHidden = FALSE)
   
+  # show preview of genetic distance data
+  output$previewGen<-renderTable({head(genDat())})
   
+
+  # validate inputs - generate error messages 
+  
+  output$warn<-renderText({
+    if((!is.null(input$file1)) | input$datrad=="dum"){
+      validate(
+        ## variables not selected
+        need(input$ptid!="" & input$wardid!="" & input$dayin!="" &
+               input$dayout!="" & input$sampledat!="",
+             "Please select variables"),
+        ## same variable selected for >1 field
+        if(input$ptid!="" & input$wardid!="" & input$dayin!="" &
+           input$dayout!="" & input$sampledat!=""){
+          need(
+            anyDuplicated(c(
+              input$ptid, input$wardid, input$dayin, input$dayout,
+              input$sampledat, input$catvars
+            )
+            )==0, "Please select each variable only once")}
+      )
+      if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+        need(
+          input$genPt1!="" & input$genPt2!="" & input$genPtDist!="", 
+          "Please select genetic distance variables"
+        )
+        
+      }
+      
+    } else {"Please select data"}
+  })
+  
+ 
 
 # Observer - 'generate plan' button or 'update' button
   
@@ -375,12 +396,12 @@ shinyServer(function(input, output, session) {
       
       # rename the variables in dat for assigned cols to generic
       datNam<-datWard()
-      colnames(datNam)[which(colnames(datNam)==input$ptid)]="ptId"
-      colnames(datNam)[which(colnames(datNam)==input$wardid)]="wardId" 
-      colnames(datNam)[which(colnames(datNam)==input$floor)]="floor"
-      colnames(datNam)[which(colnames(datNam)==input$dayin)]="dayIn"  
-      colnames(datNam)[which(colnames(datNam)==input$dayout)]="dayOut"  
-      colnames(datNam)[which(colnames(datNam)==input$sampledat)]="samp"  
+      colnames(datNam)[which(colnames(datNam)==input$ptid)]<-"ptId"
+      colnames(datNam)[which(colnames(datNam)==input$wardid)]<-"wardId" 
+      colnames(datNam)[which(colnames(datNam)==input$floor)]<-"floor"
+      colnames(datNam)[which(colnames(datNam)==input$dayin)]<-"dayIn"  
+      colnames(datNam)[which(colnames(datNam)==input$dayout)]<-"dayOut"  
+      colnames(datNam)[which(colnames(datNam)==input$sampledat)]<-"samp"  
       
       # format day in, out, sample as numeric
       datNam$dayIn<-as.numeric(datNam$dayIn)
@@ -404,9 +425,6 @@ shinyServer(function(input, output, session) {
         })
         }
 
-      
-      
-    # output$text<-renderTable({genDat()})
       
       # format patient and ward ids as factors
       datNam$ptId<-as.factor(datNam$ptId)
@@ -453,9 +471,50 @@ shinyServer(function(input, output, session) {
       "Patient ID" = "ptId",
       "Infection period" = "infec", 
       input$catvars))
+
+    
+    
+    ## Genetic distance (if used)
+
+    ## change column names to match data 
+    genDatNam<-genDat()
+    colnames(genDatNam)[which(colnames(genDatNam)==input$genPt1)]<-"ptId1"
+    colnames(genDatNam)[which(colnames(genDatNam)==input$genPt2)]<-"ptId2"
+    colnames(genDatNam)[which(colnames(genDatNam)==input$genPtDist)]<-"dist"
     
  
+    if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+  
+      ## add option to colour points by genetic dist
+      
+      updateSelectizeInput(session, "pl", choices=c(
+        "Patient ID" = "ptId",
+        "Infection period" = "infec", 
+        "Genetic distance" = "gendis",
+        input$catvars
+      ))  
+     
+     ## genetic distance inputs 
+      ### index case
+      output$genDIndexUi<-renderUI({
+        selectInput("genDIndex", label="Genetic distance index case", 
+                    choices=unique(datNam$ptId), 
+                    selected=unique(datNam$ptId)[1])
+      })
+      
+      outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
+     
+      ### genetic distance cutoff
+      output$genDistUi<-renderUI({
+        sliderInput('genDist', label= 'Genetic distance', 
+                    min=min(genDatNam[,'dist']), max=max(genDatNam[,'dist']), 
+                    value=min(genDatNam[,'dist']))
+      })
+      outputOptions(output, 'genDistUi', suspendWhenHidden=FALSE)
+    }
+
     
+
     # regenerate the plan if aspect ratio is changed
 
         # set up aspect ratio  - initially equal
@@ -742,9 +801,26 @@ shinyServer(function(input, output, session) {
         dat1<-left_join(dat1, leafCoord, by=c("wardId", "wardN"))  
         
         
+        ## Generate genetic distance variable 
+ 
+        datGen<-reactive({
+          if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+      #    req(input$genDIndex)
+      #    req(input$genDist)
+          genDistCl<-filter(genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
+          dat1$gendis<-"N"
+          dat1$gendis[which(dat1$ptId==input$genDIndex)]<-"index"
+          dat1$gendis[which(dat1$ptId%in%genDistCl)]<-"Y"
+          dat1$gendis<-factor(dat1$gendis, levels=c("index", "Y", "N"))
+          dat1 
+          } else {dat1}
+          
+        })
+
+        
         ## Generate infection period variable 
         datInf<-reactive({
-          datInf1<-as.data.frame(dat1)
+          datInf1<-as.data.frame(datGen())
           datInf1$incStart<-datInf1$samp-input$incLen
           datInf1$acqStart<-datInf1$samp-(input$incLen+input$acqLen)
           datInf1$infecEnd<-datInf1$samp+input$infecLen
@@ -808,7 +884,7 @@ shinyServer(function(input, output, session) {
             factpal <- colorFactor(cols, datCol1[,input$pl])
             datCol1$col<- factpal(datCol1[,input$pl])
           }           else {
-            datCol1$col<-"black"
+            datCol1$col<-"#3c8dbc"
           }
           datCol1
           
@@ -869,8 +945,13 @@ shinyServer(function(input, output, session) {
                                          brewer.pal(9, "Paired")[6], brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
                                 ),
                                 labels=levels(datCol()$infec), opacity=1)
-              
-            } else if(input$pl!="" & input$pl!="selvar") {
+              } else if(input$pl=="gendis"){
+                map %>% addLegend(position="bottomright", 
+                                  colors=brewer.pal(3, "Set1"), 
+                                  labels=levels(datCol()$gendis), opacity=1)
+                
+                
+              } else if(input$pl!="" & input$pl!="selvar") {
               map %>% addLegend(position="bottomright", colors=unique(datCol()$col),
                                 labels=levels(datCol()[,input$pl]), opacity=1)
             }

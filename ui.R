@@ -70,17 +70,19 @@ body <- dashboardBody(
                                                                 uiOutput("genPtDistUi")
                                                                           )
                                                                 )
+                             
                                                )
-                              
-                              
-                     
-                     
-              ),
-              box(title="Preview data", status="info", solidHeader=TRUE,
-                  div(style = 'overflow-x: scroll', tableOutput('previewDat'))
-              ),
-              textOutput("text")
-            )
+         
+              ),tabBox(title="Preview data", side="left", 
+                       tabPanel(title="Patient data", value="datPrev",
+                                div(style = 'overflow-x: scroll', tableOutput('previewDat'))),
+                       tabPanel(title="Genetic distance data", value="genPrev", 
+                                conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                 div(style='overflow-x: scroll', tableOutput('previewGen')))
+                       )
+              )
+    )
+    
     ),
 
     tabItem(tabName = "panPl", 
@@ -94,7 +96,8 @@ body <- dashboardBody(
                                                      choices=c("ptId","infec"),
                                                      options=list(
                                                        placeholder="Select variable",
-                                                       onInitialize = I('function() {this.setValue("");}')
+                                                       onInitialize = I('function(){this.setValue("infec");}')
+                                 #                      onInitialize = I('function() {this.setValue("");}')
                                                      )
                                       ),
                                       conditionalPanel(condition="input.pl=='infec'",
@@ -104,7 +107,11 @@ body <- dashboardBody(
                                                                    min=1, max=5, value=1, step=1),
                                                        sliderInput('infecLen', label='Length of infectious period',
                                                                    min=1, max=5, value=1, step=1)
-                                      )
+                                      ), 
+                                     conditionalPanel(condition="input.pl=='gendis'",
+                                                      uiOutput("genDIndexUi"),
+                                                      uiOutput("genDistUi")
+                                                      )
                                       
                             ),
                             tabPanel(title="Filter", value="filTab",
@@ -115,7 +122,12 @@ body <- dashboardBody(
                                                  selected=c("PreAcquisition", "AcquisitionPeriod", "IncubationPeriod",
                                                             "SampleDate", "InfectiousPeriod", "PostInfectious"),
                                                  multiple=T),
-                                     uiOutput("filVarsUi")
+                                     uiOutput("filVarsUi"), 
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                      selectInput('genDFil', label="Genetic distance",
+                                                                  choices=c("Index", "Yes", "No"), 
+                                                                  selected=c("Index", "Yes", "No"), multiple=T)
+                                                      )
                                      )
                             )
               ),
