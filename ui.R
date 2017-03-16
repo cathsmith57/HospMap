@@ -7,6 +7,7 @@ library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
 library(shinyjs)
+library(gridExtra)
 
 
 header <- dashboardHeader(title="jazzy dashboard")
@@ -14,11 +15,14 @@ header <- dashboardHeader(title="jazzy dashboard")
 sidebar <- dashboardSidebar(
   sidebarMenu(id="pan",
     menuItem(text="Input", tabName = "panIn", icon = icon("database")),
+    menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
     menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
     conditionalPanel(condition="input.pan=='panPl'",
-                     uiOutput("aspSliderUi"),
+                     uiOutput("aspSliderUi")
+                     ), 
+    conditionalPanel(condition="input.pan=='panPl' | input.pan=='panEpi'",
                      uiOutput("wardFilUi"),
-                     actionButton("goagain", "Update")
+                     actionButton("goagain", "Update")   
                      )
   )
   
@@ -39,7 +43,7 @@ body <- dashboardBody(
               tags$head(
                 tags$style(HTML('#gen{background-color:orange}'))
               ),
-                  actionButton("gen", "Generate plan"),
+                  actionButton("gen", "Go"),
                   textOutput("warn"),
                   textOutput("warn1")
             ),
@@ -93,7 +97,7 @@ body <- dashboardBody(
                                       checkboxInput("wardLabShow", label="Show ward labels", value=F),
                                       uiOutput("dayUi"),
                                       selectizeInput('pl', label='Colour variable', 
-                                                     choices=c("ptId","infec"),
+                                                     choices=c("ptId","infec","acq"),
                                                      options=list(
                                                        placeholder="Select variable",
                                                        onInitialize = I('function(){this.setValue("infec");}')
@@ -108,6 +112,10 @@ body <- dashboardBody(
                                                        sliderInput('infecLen', label='Length of infectious period',
                                                                    min=1, max=5, value=1, step=1)
                                       ), 
+                                 conditionalPanel(condition="input.pl=='acq'",
+                                                  sliderInput('hospAcqLen', label='Time since admitted', 
+                                                              min=1, max=5, value=1, step=1)
+                                 ),
                                      conditionalPanel(condition="input.pl=='gendis'",
                                                       uiOutput("genDIndexUi"),
                                                       uiOutput("genDistUi")
@@ -116,6 +124,9 @@ body <- dashboardBody(
                             ),
                             tabPanel(title="Filter", value="filTab",
                                      uiOutput("ptidFilUi"),
+                                     selectInput("acqFil", label="Hospital acquired", 
+                                                 choices=c("Hospital", "Community"), 
+                                                 selected=c("Hospital", "Community"), multiple=T),
                                      selectInput("infec", label="Infection period", 
                                                  choices=c("PreAcquisition", "AcquisitionPeriod", "IncubationPeriod",
                                                            "SampleDate", "InfectiousPeriod", "PostInfectious"),
@@ -141,8 +152,30 @@ body <- dashboardBody(
                          )
               )
             )
+    ),
+    
+    tabItem(tabName="panEpi",
+            fluidRow(
+              column(width=4, 
+                     box(width=NULL, status="primary",  title="Filter",
+                         uiOutput("epistartUi"),
+                         uiOutput("epiendUi"),
+                         numericInput("binwid", label="Bar width (days)", 
+                                      min=1, max=30, value=1)
+                         )
+                     ), 
+              column(width=8,
+                     tabBox(width=NULL, 
+                            tabPanel(title="All", value="epiAll",
+                                     plotOutput("epiplotAll")),
+                            tabPanel(title="Ward", value="epiWard", 
+                                     plotOutput("epiplotWard"))
+                     )
+              )
+            )
     )
   )
 )
+
 
   dashboardPage(header, sidebar, body)
