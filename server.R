@@ -382,6 +382,10 @@ shinyServer(function(input, output, session) {
     observeEvent({
       input$goagain
       input$gen}, {
+        
+        # move focus to plan tab
+        
+##        updateTabsetPanel(session, "pan", selected = "panEpi")
  
         # exclude data for wards not selected in the plan
         if(input$gen==1 & input$goagain==0){
@@ -882,7 +886,9 @@ shinyServer(function(input, output, session) {
        
         datCol<-reactive({
           datCol1<-datInf()
-          if(input$pl=="infec"){
+          if(input$colByVar==FALSE){
+            datCol1$col<-"#3c8dbc"
+          }  else if(input$pl=="infec"){
             cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
                     brewer.pal(9, "Paired")[6], brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
             )
@@ -901,9 +907,7 @@ shinyServer(function(input, output, session) {
             cols<-colRamp(length(levels(datCol1[,input$pl])))
             factpal <- colorFactor(cols, datCol1[,input$pl])
             datCol1$col<- factpal(datCol1[,input$pl])
-          }           else {
-            datCol1$col<-"#3c8dbc"
-          }
+          } 
           datCol1
           
         })
@@ -956,8 +960,9 @@ shinyServer(function(input, output, session) {
                                                                 "font-size" = "15px")
                                                               )
                                     )}
-             
-            if(input$pl=="infec"){
+            if(input$colByVar==FALSE){
+              map %>% clearControls()
+            } else if(input$pl=="infec"){
               map %>% addLegend(position="bottomright", 
                                 colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
                                          brewer.pal(9, "Paired")[6], brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
@@ -1020,91 +1025,185 @@ shinyServer(function(input, output, session) {
           
         })
         
-        # move focus to plan tab
-        
-        updateTabsetPanel(session, "pan", selected = "panEpi")
-        
-        
         # Epidemic curves
         
         # Epi curve inputs
         
+        ## patient characteristics - colour dropdown
+        updateSelectizeInput(session, "plEpi", choices=c(
+          "Hospital acquired" = "acqEpi",
+          input$catvars))
+        
+        ## patient characteristics - filter
+        output$filVarsEpiUi<-renderUI({
+          if(length(input$catvars)>=1){
+            lapply(c(1:length(input$catvars)), function(i) {
+              selectInput(
+                inputId=paste0("filEpi",i),
+                label=input$catvars[i], 
+                choices=c(levels(dat()[,input$catvars[i]])),
+                selected=levels(dat()[,input$catvars[i]]),
+                multiple=T)
+            })
+          }
+        })
+        outputOptions(output, "filVarsEpiUi", suspendWhenHidden = FALSE)
+        
+        
+        
+        
+        ## start and end dates
+   
         output$epistartUi<-renderUI({
           numericInput("epistart", label="Start date", min=min(datInf()$samp), max=max(datInf()$samp), 
                        value=min(datInf()$samp))
         })
         
+        
+ #       outputOptions(output, "epistartUi", suspendWhenHidden = FALSE)
+        
         output$epiendUi<-renderUI({
           numericInput("epiend", label="End date", min=min(datInf()$samp), max=max(datInf()$samp), 
                        value=max(datInf()$samp))
         })
+        
+        
+  #      outputOptions(output, "epiendUi", suspendWhenHidden = FALSE)
+        
+
+       brks<-reactive({
+         
+         if(is.null(input$epistart)){
+           brks1<-seq(min(datInf()$samp), max(datInf()$samp), input$binwid)
+           if(max(brks1)<max(datInf()$samp)){
+             brks1<-c(brks1, max(brks1+input$binwid))
+           }
+           brks1
+         } else {
+           brks1<-seq(input$epistart, input$epiend, input$binwid)
+           if(max(brks1)<input$epiend){
+             brks1<-c(brks1, max(brks1)+input$binwid)
+           }
+           brks1
+         }
+       })
+        
 
        datEpi<-reactive({
-         req(input$epistart)
-         req(input$epiend)
-         
-         brks<-seq(input$epistart, input$epiend, input$binwid)
-         if(max(brks)<input$epiend){
-           brks<-c(brks, max(brks)+input$binwid)
-         }
-         
          datEpi1<-datInf()
          datEpi1<-
            datEpi1 %>%
-           filter(samp>=input$epistart & samp<=input$epiend)
-         datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks, include.lowest = T)
-         datEpi1
+           mutate(acqEpi=ifelse(samp-firstDay>=input$hospAcqLenEpi, "Hospital", "Community")) 
+         datEpi1$acqEpi<-factor(datEpi1$acqEpi, levels=c("Hospital", "Community")) 
+         datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest = T)
+         
+         if(is.null(input$epistart) & input$colByVarEpi==FALSE){
+         
+           datEpi1$colEpi<-"#3c8dbc"
+           
+         } else {
+           datEpi1<-
+             datEpi1 %>%
+             arrange(datEpi1[,input$plEpi])
+ 
+           if(input$colByVarEpi==FALSE){
+             datEpi1$colEpi<-"#3c8dbc"
+           
+           } else if(input$plEpi=="acqEpi"){
+             cols<-brewer.pal(3, "Set1")[1:2]
+             factpal<-colorFactor(cols, datEpi1$acqEpi)
+             datEpi1$colEpi<-factpal(datEpi1$acqEpi)
+           } else if(input$plEpi!=""){
+             suppressWarnings(
+               colRamp<-colorRampPalette(brewer.pal(length(levels(datEpi1[,input$plEpi])), "Set1"))
+             )
+             cols<-colRamp(length(levels(datEpi1[,input$plEpi])))
+             factpal <- colorFactor(cols, datEpi1[,input$plEpi])
+             datEpi1$colEpi<- factpal(datEpi1[,input$plEpi])
+           }
+           
+        }
+         as.data.frame(datEpi1)
+
+       })
+       
+       
+       datEpiFil<-reactive({
+         datEpiFil1<-datEpi()
+         
+         if(is.null(input$epistart)){
+           datEpiFil1
+         } else {
+           datEpiFil1<-
+           datEpiFil1 %>%
+             filter(samp>=input$epistart & samp<=input$epiend) %>%
+             filter(acqEpi%in%input$acqFilEPi)
+           
+           if(length(input$catvars>=1)){
+             filGrps<-lapply(1:length(input$catvars), function(j){
+               datEpiFil1[,input$catvars[j]]%in%input[[paste0("filEpi",j)]]           
+             })
+             filGrps<-Reduce("&", filGrps)  
+             datEpiFil1<-datEpiFil1[which(filGrps),]
+           }
+           
+           
+           datEpiFil1
+         }
          
        })
        
           output$epiplotAll<-renderPlot({
-            req(input$epistart)
-            req(input$epiend)
-            brks<-seq(input$epistart, input$epiend, input$binwid)
-            if(max(brks)<input$epiend){
-              brks<-c(brks, max(brks)+input$binwid)
-            }
-            
-            epiymax<-max(datEpi()%>%
+
+            epiymax<-max(datEpiFil()%>%
                            group_by(grpTot) %>%
                            summarise(tot=n()) %>%
                            ungroup() %>%
                            select(tot))
+            
+            
+            if(input$colByVarEpi==FALSE){
+              ggplot(datEpiFil())+
+                geom_histogram(aes(x=samp), breaks=brks(), col="white", fill="#3c8dbc")+
+                scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
+                scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
+                geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                theme(
+                  legend.position="none",
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  axis.title.x=element_text(),
+                  axis.title.y=element_text(),
+                  panel.background = element_rect(fill=NA, colour="black"))+
+                labs(x="Sample day", y="Count")
               
-            ggplot(datEpi())+
-              geom_histogram(aes(x=samp), breaks=brks, col="white", fill="#3c8dbc")+
-              scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-              scale_x_continuous(limits=c(min(brks), max(brks)), breaks=seq(min(brks), max(brks),input$binwid))+
-              geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
-              theme(
-                legend.position="none",
-                panel.grid.major = element_blank(),
-                panel.grid.minor = element_blank(),
-                axis.title.x=element_text(),
-                axis.title.y=element_text(),
-                panel.background = element_rect(fill=NA, colour="black"))+
-              labs(x="Sample day", y="Count")
-            
-            
-            
+            } else {
+              ggplot(datEpiFil())+
+                geom_histogram(aes(x=samp, fill=datEpiFil()[,input$plEpi]), breaks=brks(), col="white")+
+                scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
+                scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
+                scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
+                geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                theme(
+                  legend.position="bottom",
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  axis.title.x=element_text(),
+                  axis.title.y=element_text(),
+                  panel.background = element_rect(fill=NA, colour="black"))+
+                labs(x="Sample day", y="Count")
+            }
+
           })
 
           output$epiplotWard<-renderPlot({
         
-            wardLay<-unique(datEpi()[,c("wardId", "nFloor", "nWard")])
+            wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
             
             wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
             lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
             
-            req(input$epistart)
-            req(input$epiend)
-            brks<-seq(input$epistart, input$epiend, input$binwid)
-            if(max(brks)<input$epiend){
-              brks<-c(brks, max(brks)+input$binwid)
-            }
-           
-
-            epiymax<-max(datEpi()%>%
+            epiymax<-max(datEpiFil()%>%
                            group_by(grpTot, wardId) %>%
                            summarise(tot=n()) %>%
                            ungroup() %>%
@@ -1114,11 +1213,13 @@ shinyServer(function(input, output, session) {
               lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
             })
            
-            gs<-lapply(unique(datEpi()[,"wardId"]), function(i){
-              ggplot(datEpi()[datEpi()[,"wardId"]==i,])+
-                geom_histogram(aes(x=samp), breaks=brks, col="white", fill="#3c8dbc")+
+            if(input$colByVarEpi==FALSE){
+            gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
+              ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
+                geom_histogram(aes(x=samp), breaks=brks(), col="white", fill="#3c8dbc")+
+                scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
                 scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                scale_x_continuous(limits=c(min(brks), max(brks)), breaks=seq(min(brks), max(brks),input$binwid))+
+                scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
                 ggtitle(i)+
                 geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
                 theme(
@@ -1131,11 +1232,42 @@ shinyServer(function(input, output, session) {
                 labs(x="Sample day", y="Count")
             })
             
+            } else{
+              gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
+                ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
+                  geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardId"]==i,input$plEpi]), breaks=brks(), col="white")+
+                  scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
+                  scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
+                  scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
+                  ggtitle(i)+
+                  geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                  theme(
+                    legend.position="bottom",
+                    panel.grid.major = element_blank(),
+                    panel.grid.minor = element_blank(),
+                    axis.title.x=element_text(),
+                    axis.title.y=element_text(),
+                    panel.background = element_rect(fill=NA, colour="black"))+
+                  labs(x="Sample day", y="Count")
+              })
+
+            }
+            
+            
             grid.arrange(grobs=gs, layout_matrix=lay)
   
         })
  
     })
+    
+    observeEvent({
+      input$gen}, {
+        
+        # move focus to epicurves tab if gen button pressed
+        
+        updateTabsetPanel(session, "pan", selected = "panEpi")
+      })
+    
     
     })
     

@@ -10,7 +10,8 @@ library(shinyjs)
 library(gridExtra)
 
 
-header <- dashboardHeader(title="jazzy dashboard")
+header <- dashboardHeader()
+#header <- dashboardHeader(title="jazzy dashboard")
 
 sidebar <- dashboardSidebar(
   sidebarMenu(id="pan",
@@ -93,34 +94,36 @@ body <- dashboardBody(
             fluidRow(
               column(width=4,
                      tabBox(width=NULL, 
-                            tabPanel(title="Display", value="disTab", 
-                                      checkboxInput("wardLabShow", label="Show ward labels", value=F),
-                                      uiOutput("dayUi"),
-                                      selectizeInput('pl', label='Colour variable', 
-                                                     choices=c("ptId","infec","acq"),
-                                                     options=list(
-                                                       placeholder="Select variable",
-                                                       onInitialize = I('function(){this.setValue("infec");}')
-                                 #                      onInitialize = I('function() {this.setValue("");}')
-                                                     )
-                                      ),
-                                      conditionalPanel(condition="input.pl=='infec'",
-                                                       sliderInput('acqLen', label='Length of acquisition period', 
-                                                                   min=1, max=5, value=1, step=1),
-                                                       sliderInput('incLen', label='Length of incubation period', 
-                                                                   min=1, max=5, value=1, step=1),
-                                                       sliderInput('infecLen', label='Length of infectious period',
-                                                                   min=1, max=5, value=1, step=1)
-                                      ), 
-                                 conditionalPanel(condition="input.pl=='acq'",
-                                                  sliderInput('hospAcqLen', label='Time since admitted', 
-                                                              min=1, max=5, value=1, step=1)
-                                 ),
-                                     conditionalPanel(condition="input.pl=='gendis'",
-                                                      uiOutput("genDIndexUi"),
-                                                      uiOutput("genDistUi")
+                            tabPanel(title="Display", value="disTab",
+                                     checkboxInput("wardLabShow", label="Show ward labels", value=F),
+                                     uiOutput("dayUi"),
+                                     checkboxInput("colByVar", label="Colour by patient characteristics", value=F),
+                                     conditionalPanel(condition="input.colByVar",
+                                                      selectizeInput('pl', label='Characteristic', 
+                                                                     choices=c("ptId","infec","acq"),
+                                                                     options=list(
+                                                                       placeholder="Select variable",
+                                                                       onInitialize = I('function(){this.setValue("infec");}')
+                                                                     )
+                                                      ),
+                                                      conditionalPanel(condition="input.pl=='infec'",
+                                                                       sliderInput('acqLen', label='Length of acquisition period', 
+                                                                                   min=1, max=5, value=1, step=1),
+                                                                       sliderInput('incLen', label='Length of incubation period', 
+                                                                                   min=1, max=5, value=1, step=1),
+                                                                       sliderInput('infecLen', label='Length of infectious period',
+                                                                                   min=1, max=5, value=1, step=1)
+                                                      ), 
+                                                      conditionalPanel(condition="input.pl=='acq'",
+                                                                       sliderInput('hospAcqLen', label='Days since admitted', 
+                                                                                   min=1, max=5, value=1, step=1)
+                                                      ),
+                                                      conditionalPanel(condition="input.pl=='gendis'",
+                                                                       uiOutput("genDIndexUi"),
+                                                                       uiOutput("genDistUi")
                                                       )
-                                      
+                                     )
+          
                             ),
                             tabPanel(title="Filter", value="filTab",
                                      uiOutput("ptidFilUi"),
@@ -157,20 +160,43 @@ body <- dashboardBody(
     tabItem(tabName="panEpi",
             fluidRow(
               column(width=4, 
-                     box(width=NULL, status="primary",  title="Filter",
-                         uiOutput("epistartUi"),
-                         uiOutput("epiendUi"),
-                         numericInput("binwid", label="Bar width (days)", 
-                                      min=1, max=30, value=1)
-                         )
-                     ), 
+                     tabBox(width=NULL,
+                            tabPanel(title="Display", value="disEpiTab", 
+                                     numericInput("binwid", label="Bar width (days)", 
+                                                  min=1, max=30, value=1),
+                                     checkboxInput("colByVarEpi", label="Colour by patient characteristics", value=F),
+                                     conditionalPanel(condition="input.colByVarEpi",
+                                                      selectizeInput('plEpi', label='Characteristic', 
+                                                                     choices=c("acqEpi"),
+                                                                     options=list(
+                                                                       placeholder="Select variable",
+                                                                       onInitialize = I('function(){this.setValue("acqEpi");}')
+                                                                     )
+                                                      ), 
+                                                      conditionalPanel(condition="input.plEpi=='acqEpi'",
+                                                                       sliderInput('hospAcqLenEpi', label='Days since admitted', 
+                                                                                   min=1, max=5, value=1, step=1)
+                                                                       )
+                                                      )
+                                     ),
+                            tabPanel(title="Filter", value="filEpiTab", 
+                                     uiOutput("epistartUi"), 
+                                     uiOutput("epiendUi"), 
+                                     selectInput("acqFilEPi", label="Hospital acquired", 
+                                                 choices=c("Hospital", "Community"), 
+                                                 selected=c("Hospital", "Community"), multiple=T),
+                                     uiOutput("filVarsEpiUi")
+                                     )
+                     )
+              ),
               column(width=8,
                      tabBox(width=NULL, 
                             tabPanel(title="All", value="epiAll",
                                      plotOutput("epiplotAll")),
                             tabPanel(title="Ward", value="epiWard", 
                                      plotOutput("epiplotWard"))
-                     )
+                     ), 
+                     div(style = 'overflow-x: scroll', tableOutput('jazzytable'))
               )
             )
     )
