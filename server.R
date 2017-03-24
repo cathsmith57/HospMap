@@ -4,14 +4,28 @@ shinyServer(function(input, output, session) {
   
   datDum<-data.frame(
     ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
-    wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","B"),
+    wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","c"),
     floor=as.integer(c(2,1,2,2,1,1,2,1,2,2,2,1,1,2,1,1,1,2,2,2)),
     var1=c("A","A","A","A","A","B","B","B","B","A","A","A","A","B","B","A","B","B","B","A"),
     var2=c("B","B","B","A","A","B","B","B","B","B","B","B","B","B","B","B","B","B","A","A"),
     var3=c("B","B","B","A","A","B","B","A","A","A","A","A","A","A","B","B","A","A","A","B"),
-    dayIn=as.integer(c(2,7,13,3,12,2,7,18,20,4,18,21,5,9,14,5,2,19,7,7)),
-    dayOut=as.integer(c(7,13,17,12,20,7,18,20,25,18,21,28,11,14,19,17,19,27,25,25)),
-    samp=as.integer(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
+    dayIn=c("2/1/2017", "7/1/2017", "13/1/2017", "3/1/2017", "12/1/2017",
+                "2/1/2017", "7/1/2017", "18/1/2017", "20/1/2017", "4/1/2017",
+                "18/1/2017", "21/1/2017", "5/1/2017", "9/1/2017", "14/1/2017",
+                "5/1/2017", "2/1/2017", "19/1/2017", "7/1/2017", "20/1/2017"),
+    dayOut=c("7/1/2017", "13/1/2017", "17/1/2017", "12/1/2017", "20/1/2017",
+                "7/1/2017", "18/1/2017", "20/1/2017", "25/1/2017", "18/1/2017",
+                "21/1/2017", "28/1/2017", "11/1/2017", "14/1/2017", "19/1/2017",
+                "17/1/2017", "19/1/2017", "27/1/2017", "20/1/2017", "25/1/2017"),
+    samp=c("14/1/2017", "14/1/2017", "14/1/2017", "7/1/2017", "7/1/2017",
+                "4/1/2017", "18/1/2017", "18/1/2017", "18/1/2017", "13/1/2017",
+                "13/1/2017", "13/1/2017", "10/1/2017", "12/1/2017", "12/1/2017",
+                "9/1/2017", "26/1/2017", "26/1/2017", "19/1/2017", "19/1/2017")
+    
+    
+
+#    dayOut=as.integer(c(7,13,17,12,20,7,18,20,25,18,21,28,11,14,19,17,19,27,25,25)),
+#    samp=as.integer(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
   )
 
   
@@ -114,7 +128,7 @@ shinyServer(function(input, output, session) {
   
   output$previewDat<-renderTable(
     if(!(is.null(input$file1) & input$datrad=="user")){
-      head(dat())
+      dat()
     }
     )
   
@@ -343,7 +357,7 @@ shinyServer(function(input, output, session) {
   outputOptions(output, "genPtDistUi", suspendWhenHidden = FALSE)
   
   # show preview of genetic distance data
-  output$previewGen<-renderTable({head(genDat())})
+  output$previewGen<-renderTable({genDat()})
   
 
   # validate inputs - generate error messages 
@@ -409,10 +423,10 @@ shinyServer(function(input, output, session) {
       colnames(datNam)[which(colnames(datNam)==input$dayout)]<-"dayOut"  
       colnames(datNam)[which(colnames(datNam)==input$sampledat)]<-"samp"  
       
-      # format day in, out, sample as numeric
-      datNam$dayIn<-as.numeric(datNam$dayIn)
-      datNam$dayOut<-as.numeric(datNam$dayOut)
-      datNam$samp<-as.numeric(datNam$samp)
+      # format day in, out, sample as date
+      datNam$dayIn<-dmy(datNam$dayIn)
+      datNam$dayOut<-dmy(datNam$dayOut)
+      datNam$samp<-dmy(datNam$samp)
       
       # format categorical vars as factors
       if(length(input$catvars)>=1){
@@ -444,7 +458,7 @@ shinyServer(function(input, output, session) {
             lapply(unique(datNam$wardId), function(j){
               max(plyr::count(
                 unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
-                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1))
+                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1),1)
                 }))
              )$freq)
             })
@@ -454,7 +468,7 @@ shinyServer(function(input, output, session) {
 
     # set up ui in 'plan' tab
     output$dayUi<-renderUI({
-      sliderInput('day', label = 'Day:', 
+      sliderInput('day', label = 'Day', 
                   min=1, max=max(datNam$dayIn),
                                  value=min(datNam$dayIn), step=1) 
     })
@@ -476,7 +490,7 @@ shinyServer(function(input, output, session) {
     updateSelectizeInput(session, "pl", choices=c(
       "Patient ID" = "ptId",
       "Infection period" = "infec", 
-      "Hospital acquired" = "acq",
+      "Place acquired" = "acq",
       input$catvars))
 
     
@@ -497,7 +511,7 @@ shinyServer(function(input, output, session) {
       updateSelectizeInput(session, "pl", choices=c(
         "Patient ID" = "ptId",
         "Infection period" = "infec", 
-        "Hospital acquired" = "acq",
+        "Place acquired" = "acq",
         "Genetic distance" = "gendis",
         input$catvars
       ))  
@@ -830,22 +844,25 @@ shinyServer(function(input, output, session) {
         ## Generate infection period and hosp acquired variables 
         datInf<-reactive({
           datInf1<-as.data.frame(datGen())
-          datInf1$incStart<-datInf1$samp-input$incLen
-          datInf1$acqStart<-datInf1$samp-(input$incLen+input$acqLen)
-          datInf1$infecEnd<-datInf1$samp+input$infecLen
+          datInf1$symStart<-datInf1$samp-input$sampDel
+          datInf1$expStart<-datInf1$symStart-input$incLen[2]
+          datInf1$expEnd<-datInf1$symStart-input$incLen[1]
+          datInf1$infecEnd<-datInf1$symStart+input$infecLen
           datInf1$infec<-NA
-          datInf1$infec[which(input$day<datInf1$acqStart)]<-"PreAcquisition"
-          datInf1$infec[which(input$day>=datInf1$acqStart &
-                                input$day<datInf1$incStart)]<-"AcquisitionPeriod"
-          datInf1$infec[which(input$day>=datInf1$incStart &
-                                input$day<datInf1$samp)]<-"IncubationPeriod"
+          datInf1$infec[which(input$day<datInf1$expStart)]<-"PreExposure"
+          datInf1$infec[which(input$day>=datInf1$expStart &
+                                input$day<=datInf1$expEnd)]<-"ExposurePeriod"
+          datInf1$infec[which(input$day>datInf1$expEnd & 
+                                input$day<datInf1$symStart)]<-"IncubationPeriod"
+          datInf1$infec[which(input$day>=datInf1$symStart & 
+                                input$day<=datInf1$infecEnd)]<-"InfectiousPeriod"
           datInf1$infec[which(input$day==datInf1$samp)]<-"SampleDate"
-          datInf1$infec[which(input$day<=datInf1$infecEnd &
-                                input$day>datInf1$samp)]<-"InfectiousPeriod"
           datInf1$infec[which(input$day>datInf1$infecEnd)]<-"PostInfectious"
+          
           datInf1$infec<-factor(datInf1$infec, 
-                                levels=c("PreAcquisition", "AcquisitionPeriod", "IncubationPeriod", 
+                                levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
                                          "SampleDate", "InfectiousPeriod", "PostInfectious"))
+          
           datInf1<-
             datInf1 %>%
             group_by(ptId) %>%
@@ -1031,7 +1048,7 @@ shinyServer(function(input, output, session) {
         
         ## patient characteristics - colour dropdown
         updateSelectizeInput(session, "plEpi", choices=c(
-          "Hospital acquired" = "acqEpi",
+          "Place acquired" = "acqEpi",
           input$catvars))
         
         ## patient characteristics - filter
@@ -1053,39 +1070,32 @@ shinyServer(function(input, output, session) {
         
         
         ## start and end dates
-   
-        output$epistartUi<-renderUI({
-          numericInput("epistart", label="Start date", min=min(datInf()$samp), max=max(datInf()$samp), 
-                       value=min(datInf()$samp))
+        
+        output$epidatesUi<-renderUI({
+          dateRangeInput("epidates", label="Dates", min=min(datInf()$samp), max=max(datInf()$samp),
+                         start=min(datInf()$samp), end=max(datInf()$samp))
+                         
         })
-        
-        
- #       outputOptions(output, "epistartUi", suspendWhenHidden = FALSE)
-        
-        output$epiendUi<-renderUI({
-          numericInput("epiend", label="End date", min=min(datInf()$samp), max=max(datInf()$samp), 
-                       value=max(datInf()$samp))
-        })
-        
-        
-  #      outputOptions(output, "epiendUi", suspendWhenHidden = FALSE)
-        
 
+   
        brks<-reactive({
-         
-         if(is.null(input$epistart)){
+         validate(need(!is.na(input$binwid), "Please select bar width"))
+         if(length(input$epidates)!=2){
+           validate(need(!is.na(input$binwid), "Please select bar width"))
            brks1<-seq(min(datInf()$samp), max(datInf()$samp), input$binwid)
-           if(max(brks1)<max(datInf()$samp)){
-             brks1<-c(brks1, max(brks1+input$binwid))
+           while(max(brks1)<max(datInf()$samp)){
+             brks1<-c(brks1, max(brks1)+input$binwid)
            }
            brks1
          } else {
-           brks1<-seq(input$epistart, input$epiend, input$binwid)
-           if(max(brks1)<input$epiend){
+           validate(need(!is.na(input$binwid), "Please select bar width"))
+           brks1<-seq(input$epidates[1], input$epidates[2], input$binwid)
+           while(max(brks1)<input$epidates[2]){
              brks1<-c(brks1, max(brks1)+input$binwid)
            }
            brks1
          }
+
        })
         
 
@@ -1095,9 +1105,13 @@ shinyServer(function(input, output, session) {
            datEpi1 %>%
            mutate(acqEpi=ifelse(samp-firstDay>=input$hospAcqLenEpi, "Hospital", "Community")) 
          datEpi1$acqEpi<-factor(datEpi1$acqEpi, levels=c("Hospital", "Community")) 
-         datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest = T)
+         datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
+         datEpi1<-
+           datEpi1 %>%
+           filter(samp>=dayIn & samp<dayOut)
          
-         if(is.null(input$epistart) & input$colByVarEpi==FALSE){
+         
+         if(length(input$epidates)!=2 & input$colByVarEpi==FALSE){
          
            datEpi1$colEpi<-"#3c8dbc"
            
@@ -1131,12 +1145,13 @@ shinyServer(function(input, output, session) {
        datEpiFil<-reactive({
          datEpiFil1<-datEpi()
          
-         if(is.null(input$epistart)){
+         if(length(input$epidates)!=2){         
            datEpiFil1
          } else {
+   
            datEpiFil1<-
            datEpiFil1 %>%
-             filter(samp>=input$epistart & samp<=input$epiend) %>%
+             filter(samp>=input$epidates[1] & samp<=input$epidates[2]) %>%
              filter(acqEpi%in%input$acqFilEPi)
            
            if(length(input$catvars>=1)){
@@ -1146,14 +1161,17 @@ shinyServer(function(input, output, session) {
              filGrps<-Reduce("&", filGrps)  
              datEpiFil1<-datEpiFil1[which(filGrps),]
            }
-           
-           
+
            datEpiFil1
-         }
+         } 
+           
          
        })
        
+
           output$epiplotAll<-renderPlot({
+            req(nrow(datEpiFil())>=1)
+
 
             epiymax<-max(datEpiFil()%>%
                            group_by(grpTot) %>%
@@ -1164,9 +1182,11 @@ shinyServer(function(input, output, session) {
             
             if(input$colByVarEpi==FALSE){
               ggplot(datEpiFil())+
-                geom_histogram(aes(x=samp), breaks=brks(), col="white", fill="#3c8dbc")+
+                geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
+                scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
+                             date_breaks=input$xbrks, date_labels=input$xlabs
+                             )+
                 scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
                 geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
                 theme(
                   legend.position="none",
@@ -1174,15 +1194,19 @@ shinyServer(function(input, output, session) {
                   panel.grid.minor = element_blank(),
                   axis.title.x=element_text(),
                   axis.title.y=element_text(),
+                  axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
+                                           vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
                   panel.background = element_rect(fill=NA, colour="black"))+
-                labs(x="Sample day", y="Count")
+                labs(x="Sample date", y="Count")
               
             } else {
               ggplot(datEpiFil())+
-                geom_histogram(aes(x=samp, fill=datEpiFil()[,input$plEpi]), breaks=brks(), col="white")+
+                geom_histogram(aes(x=samp, fill=datEpiFil()[,input$plEpi]), breaks=as.numeric(brks()), col="white", closed="left")+
                 scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
                 scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
+                scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
+                             date_breaks=input$xbrks, date_labels=input$xlabs
+                )+
                 geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
                 theme(
                   legend.position="bottom",
@@ -1190,13 +1214,16 @@ shinyServer(function(input, output, session) {
                   panel.grid.minor = element_blank(),
                   axis.title.x=element_text(),
                   axis.title.y=element_text(),
+                  axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
+                                           vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
                   panel.background = element_rect(fill=NA, colour="black"))+
-                labs(x="Sample day", y="Count")
+                labs(x="Sample date", y="Count")
             }
 
           })
 
           output$epiplotWard<-renderPlot({
+            req(nrow(datEpiFil())>=1)
         
             wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
             
@@ -1216,11 +1243,12 @@ shinyServer(function(input, output, session) {
             if(input$colByVarEpi==FALSE){
             gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
               ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
-                geom_histogram(aes(x=samp), breaks=brks(), col="white", fill="#3c8dbc")+
+                geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
                 scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
                 scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
-                ggtitle(i)+
+                scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
+                             date_breaks=input$xbrks, date_labels=input$xlabs
+                )+                ggtitle(i)+
                 geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
                 theme(
                   legend.position="none",
@@ -1228,18 +1256,22 @@ shinyServer(function(input, output, session) {
                   panel.grid.minor = element_blank(),
                   axis.title.x=element_text(),
                   axis.title.y=element_text(),
+                  axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
+                                           vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
                   panel.background = element_rect(fill=NA, colour="black"))+
-                labs(x="Sample day", y="Count")
+                labs(x="Sample date", y="Count")
             })
             
             } else{
               gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
                 ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
-                  geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardId"]==i,input$plEpi]), breaks=brks(), col="white")+
+                  geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardId"]==i,input$plEpi]), 
+                                 breaks=as.numeric(brks()), col="white", closed="left")+
                   scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
                   scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                  scale_x_continuous(limits=c(min(brks()), max(brks())), breaks=seq(min(brks()), max(brks()),input$binwid))+
-                  ggtitle(i)+
+                  scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
+                               date_breaks=input$xbrks, date_labels=input$xlabs
+                  )+                  ggtitle(i)+
                   geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
                   theme(
                     legend.position="bottom",
@@ -1247,8 +1279,10 @@ shinyServer(function(input, output, session) {
                     panel.grid.minor = element_blank(),
                     axis.title.x=element_text(),
                     axis.title.y=element_text(),
+                    axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
+                                             vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
                     panel.background = element_rect(fill=NA, colour="black"))+
-                  labs(x="Sample day", y="Count")
+                  labs(x="Sample date", y="Count")
               })
 
             }
@@ -1257,14 +1291,13 @@ shinyServer(function(input, output, session) {
             grid.arrange(grobs=gs, layout_matrix=lay)
   
         })
- 
+
     })
+    
+    # move focus to epicurves tab if gen button pressed
     
     observeEvent({
       input$gen}, {
-        
-        # move focus to epicurves tab if gen button pressed
-        
         updateTabsetPanel(session, "pan", selected = "panEpi")
       })
     

@@ -8,6 +8,8 @@ library(ggplot2)
 library(RColorBrewer)
 library(shinyjs)
 library(gridExtra)
+library(lubridate)
+
 
 
 header <- dashboardHeader()
@@ -80,10 +82,12 @@ body <- dashboardBody(
          
               ),tabBox(title="Preview data", side="left", 
                        tabPanel(title="Patient data", value="datPrev",
-                                div(style = 'overflow-x: scroll', tableOutput('previewDat'))),
+                                div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
+                                    tableOutput('previewDat'))),
                        tabPanel(title="Genetic distance data", value="genPrev", 
                                 conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                 div(style='overflow-x: scroll', tableOutput('previewGen')))
+                                                 div(style='overflow-x: scroll; height:300px; overflow-y: scroll', 
+                                                     tableOutput('previewGen')))
                        )
               )
     )
@@ -107,15 +111,19 @@ body <- dashboardBody(
                                                                      )
                                                       ),
                                                       conditionalPanel(condition="input.pl=='infec'",
-                                                                       sliderInput('acqLen', label='Length of acquisition period', 
+                                                                       sliderInput('incLen', label='Incubation period (days)', 
+                                                                                   min=1, max=5, value=c(1,4), step=1),
+                                                                       sliderInput('sampDel', label='Sampling delay (days)', 
                                                                                    min=1, max=5, value=1, step=1),
-                                                                       sliderInput('incLen', label='Length of incubation period', 
-                                                                                   min=1, max=5, value=1, step=1),
-                                                                       sliderInput('infecLen', label='Length of infectious period',
+                                                                       sliderInput('infecLen', label='Infectious period (days)',
                                                                                    min=1, max=5, value=1, step=1)
                                                       ), 
                                                       conditionalPanel(condition="input.pl=='acq'",
-                                                                       sliderInput('hospAcqLen', label='Days since admitted', 
+                                                                       tags$div(class="header", checked=NA,
+                                                                                tags$strong("Define hospital acquired infection"), 
+                                                                                tags$p("Days from admission to sample")
+                                                                                ),
+                                                                       sliderInput('hospAcqLen', label=NA, 
                                                                                    min=1, max=5, value=1, step=1)
                                                       ),
                                                       conditionalPanel(condition="input.pl=='gendis'",
@@ -127,13 +135,13 @@ body <- dashboardBody(
                             ),
                             tabPanel(title="Filter", value="filTab",
                                      uiOutput("ptidFilUi"),
-                                     selectInput("acqFil", label="Hospital acquired", 
+                                     selectInput("acqFil", label="Place acquired", 
                                                  choices=c("Hospital", "Community"), 
                                                  selected=c("Hospital", "Community"), multiple=T),
                                      selectInput("infec", label="Infection period", 
-                                                 choices=c("PreAcquisition", "AcquisitionPeriod", "IncubationPeriod",
+                                                 choices=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
                                                            "SampleDate", "InfectiousPeriod", "PostInfectious"),
-                                                 selected=c("PreAcquisition", "AcquisitionPeriod", "IncubationPeriod",
+                                                 selected=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
                                                             "SampleDate", "InfectiousPeriod", "PostInfectious"),
                                                  multiple=T),
                                      uiOutput("filVarsUi"), 
@@ -164,6 +172,26 @@ body <- dashboardBody(
                             tabPanel(title="Display", value="disEpiTab", 
                                      numericInput("binwid", label="Bar width (days)", 
                                                   min=1, max=30, value=1),
+                                     selectInput("xbrks", label="x axis breaks",
+                                                 choices=c(
+                                                   "day" = "1 day",
+                                                   "2 days" = "2 days",
+                                                   "week" = "1 week", 
+                                                   "fortnight" = "2 weeks",
+                                                   "month" = "1 month", 
+                                                   "quarter" = "4 months"
+                                                   ), selected="1 week"
+                                                 ),
+                                     selectInput("xlabs", label="x axis labels", 
+                                                 choices=c(
+                                                   "day" = "%d", 
+                                                   "day-month" = "%d %b", 
+                                                   "day-month-year" = "%d %b %y",
+                                                   "month-year" = "%b %y", 
+                                                   "year"
+                                                 ), selected="%d %b"
+                                                 ),
+                                     checkboxInput("vertLab", label="Vertical x axis labels", value=F),
                                      checkboxInput("colByVarEpi", label="Colour by patient characteristics", value=F),
                                      conditionalPanel(condition="input.colByVarEpi",
                                                       selectizeInput('plEpi', label='Characteristic', 
@@ -174,15 +202,18 @@ body <- dashboardBody(
                                                                      )
                                                       ), 
                                                       conditionalPanel(condition="input.plEpi=='acqEpi'",
-                                                                       sliderInput('hospAcqLenEpi', label='Days since admitted', 
+                                                                       tags$div(class="header", checked=NA,
+                                                                                tags$strong("Define hospital acquired infection"), 
+                                                                                tags$p("Days from admission to sample")
+                                                                       ),
+                                                                       sliderInput('hospAcqLenEpi', label=NA, 
                                                                                    min=1, max=5, value=1, step=1)
                                                                        )
                                                       )
                                      ),
                             tabPanel(title="Filter", value="filEpiTab", 
-                                     uiOutput("epistartUi"), 
-                                     uiOutput("epiendUi"), 
-                                     selectInput("acqFilEPi", label="Hospital acquired", 
+                                     uiOutput("epidatesUi"),
+                                     selectInput("acqFilEPi", label="Place acquired", 
                                                  choices=c("Hospital", "Community"), 
                                                  selected=c("Hospital", "Community"), multiple=T),
                                      uiOutput("filVarsEpiUi")
@@ -196,7 +227,7 @@ body <- dashboardBody(
                             tabPanel(title="Ward", value="epiWard", 
                                      plotOutput("epiplotWard"))
                      ), 
-                     div(style = 'overflow-x: scroll', tableOutput('jazzytable'))
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("warn2"))
               )
             )
     )
