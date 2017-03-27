@@ -28,7 +28,6 @@ sidebar <- dashboardSidebar(
                      actionButton("goagain", "Update")   
                      )
   )
-  
 )
 
 body <- dashboardBody(
@@ -82,8 +81,10 @@ body <- dashboardBody(
          
               ),tabBox(title="Preview data", side="left", 
                        tabPanel(title="Patient data", value="datPrev",
-                                div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
-                                    tableOutput('previewDat'))),
+                                conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
+                                                 div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
+                                                     tableOutput('previewDat')))
+                                ),
                        tabPanel(title="Genetic distance data", value="genPrev", 
                                 conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
                                                  div(style='overflow-x: scroll; height:300px; overflow-y: scroll', 
@@ -175,9 +176,9 @@ body <- dashboardBody(
                                      selectInput("xbrks", label="x axis breaks",
                                                  choices=c(
                                                    "day" = "1 day",
-                                                   "2 days" = "2 days",
+                                                   "two days" = "2 days",
                                                    "week" = "1 week", 
-                                                   "fortnight" = "2 weeks",
+                                                   "two weeks" = "2 weeks",
                                                    "month" = "1 month", 
                                                    "quarter" = "4 months"
                                                    ), selected="1 week"
@@ -227,7 +228,8 @@ body <- dashboardBody(
                             tabPanel(title="Ward", value="epiWard", 
                                      plotOutput("epiplotWard"))
                      ), 
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("warn2"))
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
+                         tableOutput("jazzytable1"))
               )
             )
     )

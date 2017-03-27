@@ -4,7 +4,7 @@ shinyServer(function(input, output, session) {
   
   datDum<-data.frame(
     ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
-    wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","c"),
+    wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","C"),
     floor=as.integer(c(2,1,2,2,1,1,2,1,2,2,2,1,1,2,1,1,1,2,2,2)),
     var1=c("A","A","A","A","A","B","B","B","B","A","A","A","A","B","B","A","B","B","B","A"),
     var2=c("B","B","B","A","A","B","B","B","B","B","B","B","B","B","B","B","B","B","A","A"),
@@ -469,7 +469,7 @@ shinyServer(function(input, output, session) {
     # set up ui in 'plan' tab
     output$dayUi<-renderUI({
       sliderInput('day', label = 'Day', 
-                  min=1, max=max(datNam$dayIn),
+                  min=min(datNam$dayIn), max=max(datNam$dayIn),
                                  value=min(datNam$dayIn), step=1) 
     })
     
@@ -1182,12 +1182,16 @@ shinyServer(function(input, output, session) {
             
             if(input$colByVarEpi==FALSE){
               ggplot(datEpiFil())+
+             
                 geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
                 scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
                              date_breaks=input$xbrks, date_labels=input$xlabs
                              )+
                 scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
+                                             y=1:epiymax, yend=1:epiymax), 
+                             aes(x=x, xend=xend, y=y, yend=yend),
+                             col="white")+
                 theme(
                   legend.position="none",
                   panel.grid.major = element_blank(),
@@ -1207,7 +1211,10 @@ shinyServer(function(input, output, session) {
                 scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
                              date_breaks=input$xbrks, date_labels=input$xlabs
                 )+
-                geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
+                                             y=1:epiymax, yend=1:epiymax), 
+                             aes(x=x, xend=xend, y=y, yend=yend),
+                             col="white")+
                 theme(
                   legend.position="bottom",
                   panel.grid.major = element_blank(),
@@ -1225,10 +1232,14 @@ shinyServer(function(input, output, session) {
           output$epiplotWard<-renderPlot({
             req(nrow(datEpiFil())>=1)
         
-            wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
-            
+            wardLay<-unique(datEpi()[,c("wardId", "nFloor", "nWard")])
             wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
+            wardLay<-
+              wardLay %>% arrange(nFloor, nWard)
             lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
+            lapply(1:nrow(wardLay), function(i){
+              lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
+            })
             
             epiymax<-max(datEpiFil()%>%
                            group_by(grpTot, wardId) %>%
@@ -1236,12 +1247,10 @@ shinyServer(function(input, output, session) {
                            ungroup() %>%
                            select(tot))
             
-            lapply(1:nrow(wardLay), function(i){
-              lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
-            })
            
             if(input$colByVarEpi==FALSE){
-            gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
+            gs<-lapply(unique(wardLay[,"wardId"]), function(i){
+     #       gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
               ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
                 geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
                 scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
@@ -1249,7 +1258,10 @@ shinyServer(function(input, output, session) {
                 scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
                              date_breaks=input$xbrks, date_labels=input$xlabs
                 )+                ggtitle(i)+
-                geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
+                                             y=1:epiymax, yend=1:epiymax), 
+                             aes(x=x, xend=xend, y=y, yend=yend),
+                             col="white")+
                 theme(
                   legend.position="none",
                   panel.grid.major = element_blank(),
@@ -1263,7 +1275,8 @@ shinyServer(function(input, output, session) {
             })
             
             } else{
-              gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
+              gs<-lapply(unique(wardLay[,"wardId"]), function(i){
+  #            gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
                 ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
                   geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardId"]==i,input$plEpi]), 
                                  breaks=as.numeric(brks()), col="white", closed="left")+
@@ -1272,7 +1285,10 @@ shinyServer(function(input, output, session) {
                   scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
                                date_breaks=input$xbrks, date_labels=input$xlabs
                   )+                  ggtitle(i)+
-                  geom_hline(yintercept=seq(0, epiymax, 1), col="white")+
+                  geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
+                                               y=1:epiymax, yend=1:epiymax), 
+                               aes(x=x, xend=xend, y=y, yend=yend),
+                               col="white")+
                   theme(
                     legend.position="bottom",
                     panel.grid.major = element_blank(),
@@ -1291,6 +1307,37 @@ shinyServer(function(input, output, session) {
             grid.arrange(grobs=gs, layout_matrix=lay)
   
         })
+          
+         output$jazzytable<-renderTable({
+           wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
+           wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
+           wardLay<-
+             wardLay %>% arrange(nFloor, nWard)
+           lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
+           lapply(1:nrow(wardLay), function(i){
+             lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
+           })
+           wardLay
+           
+           
+         })
+         
+         
+         output$jazzytable1<-renderTable({
+           wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
+           wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
+           wardLay<-
+             wardLay %>% arrange(nFloor, nWard)
+           lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
+           lapply(1:nrow(wardLay), function(i){
+             lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
+           })
+           lay
+           
+           
+         })
+          
+          
 
     })
     
