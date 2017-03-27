@@ -1170,8 +1170,7 @@ shinyServer(function(input, output, session) {
        
 
           output$epiplotAll<-renderPlot({
-            req(nrow(datEpiFil())>=1)
-
+            validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
 
             epiymax<-max(datEpiFil()%>%
                            group_by(grpTot) %>%
@@ -1182,7 +1181,6 @@ shinyServer(function(input, output, session) {
             
             if(input$colByVarEpi==FALSE){
               ggplot(datEpiFil())+
-             
                 geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
                 scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
                              date_breaks=input$xbrks, date_labels=input$xlabs
@@ -1230,8 +1228,8 @@ shinyServer(function(input, output, session) {
           })
 
           output$epiplotWard<-renderPlot({
-            req(nrow(datEpiFil())>=1)
-        
+            validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
+
             wardLay<-unique(datEpi()[,c("wardId", "nFloor", "nWard")])
             wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
             wardLay<-
@@ -1240,7 +1238,7 @@ shinyServer(function(input, output, session) {
             lapply(1:nrow(wardLay), function(i){
               lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
             })
-            
+       
             epiymax<-max(datEpiFil()%>%
                            group_by(grpTot, wardId) %>%
                            summarise(tot=n()) %>%
@@ -1250,7 +1248,6 @@ shinyServer(function(input, output, session) {
            
             if(input$colByVarEpi==FALSE){
             gs<-lapply(unique(wardLay[,"wardId"]), function(i){
-     #       gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
               ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
                 geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
                 scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
@@ -1273,10 +1270,10 @@ shinyServer(function(input, output, session) {
                   panel.background = element_rect(fill=NA, colour="black"))+
                 labs(x="Sample date", y="Count")
             })
+            grid.arrange(grobs=gs, layout_matrix=lay)
             
             } else{
               gs<-lapply(unique(wardLay[,"wardId"]), function(i){
-  #            gs<-lapply(unique(datEpiFil()[,"wardId"]), function(i){
                 ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
                   geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardId"]==i,input$plEpi]), 
                                  breaks=as.numeric(brks()), col="white", closed="left")+
@@ -1290,7 +1287,7 @@ shinyServer(function(input, output, session) {
                                aes(x=x, xend=xend, y=y, yend=yend),
                                col="white")+
                   theme(
-                    legend.position="bottom",
+                    legend.position="none",
                     panel.grid.major = element_blank(),
                     panel.grid.minor = element_blank(),
                     axis.title.x=element_text(),
@@ -1300,45 +1297,18 @@ shinyServer(function(input, output, session) {
                     panel.background = element_rect(fill=NA, colour="black"))+
                   labs(x="Sample date", y="Count")
               })
-
+              
+              legend<-gtable_filter(ggplot_gtable(ggplot_build(
+                ggplot(datEpiFil())+
+                  geom_histogram(aes(x=samp, fill=datEpiFil()[,input$plEpi]), binwidth = 1)+
+                  scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
+                  theme(legend.position="bottom"))), 
+                "guide-box")
+           gs<-arrangeGrob(grobs=gs, layout_matrix=lay)
+            grid.arrange(gs, legend, ncol=1, heights=c(10,1))
             }
-            
-            
-            grid.arrange(grobs=gs, layout_matrix=lay)
-  
-        })
-          
-         output$jazzytable<-renderTable({
-           wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
-           wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
-           wardLay<-
-             wardLay %>% arrange(nFloor, nWard)
-           lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
-           lapply(1:nrow(wardLay), function(i){
-             lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
-           })
-           wardLay
-           
-           
-         })
-         
-         
-         output$jazzytable1<-renderTable({
-           wardLay<-unique(datEpiFil()[,c("wardId", "nFloor", "nWard")])
-           wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
-           wardLay<-
-             wardLay %>% arrange(nFloor, nWard)
-           lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
-           lapply(1:nrow(wardLay), function(i){
-             lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
-           })
-           lay
-           
-           
-         })
-          
-          
 
+        })
     })
     
     # move focus to epicurves tab if gen button pressed

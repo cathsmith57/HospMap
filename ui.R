@@ -172,7 +172,7 @@ body <- dashboardBody(
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disEpiTab", 
                                      numericInput("binwid", label="Bar width (days)", 
-                                                  min=1, max=30, value=1),
+                                                  min=1, max=30, value=4),
                                      selectInput("xbrks", label="x axis breaks",
                                                  choices=c(
                                                    "day" = "1 day",
@@ -189,7 +189,7 @@ body <- dashboardBody(
                                                    "day-month" = "%d %b", 
                                                    "day-month-year" = "%d %b %y",
                                                    "month-year" = "%b %y", 
-                                                   "year"
+                                                   "year" = "%y"
                                                  ), selected="%d %b"
                                                  ),
                                      checkboxInput("vertLab", label="Vertical x axis labels", value=F),
@@ -227,9 +227,9 @@ body <- dashboardBody(
                                      plotOutput("epiplotAll")),
                             tabPanel(title="Ward", value="epiWard", 
                                      plotOutput("epiplotWard"))
-                     ), 
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
-                         tableOutput("jazzytable1"))
+                     ) 
+    #                 div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
+    #                     tableOutput("jazzytable1"))
               )
             )
     )
