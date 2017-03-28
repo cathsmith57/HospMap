@@ -2,13 +2,22 @@ shinyServer(function(input, output, session) {
   
 # Dummy data
   
-  datDum<-data.frame(
+  coreDum<-data.frame(
+    ptId=paste0("pt", c(1,2,3,4,5,6,7,8,9,10)), 
+    wardSamp=c("C", "C", "A", "A", "C", "A", "C", "A", "C", "B"), 
+    admDat=c("19/1/2017", "03/1/2017", "02/1/2017", "07/1/2017", "04/1/2017", 
+             "05/1/2017", "09/1/2017", "05/1/2017", "02/1/2017", "07/1/2017"),
+    samp=c("14/1/2017", "7/1/2017","4/1/2017", "18/1/2017","13/1/2017",
+           "10/1/2017", "12/1/2017","9/1/2017", "26/1/2017","19/1/2017"), 
+    var1=c("A", "A", "B", "B", "A", "A", "B", "A", "B", "B"),
+    var2=c("B", "A", "B", "B", "B", "B", "B", "B", "B", "A"),
+    var3=c("B", "A", "B", "B", "A", "A", "A", "A", "B", "A")
+  )
+
+  mvmtDum<-data.frame(
     ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
     wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","C"),
     floor=as.integer(c(2,1,2,2,1,1,2,1,2,2,2,1,1,2,1,1,1,2,2,2)),
-    var1=c("A","A","A","A","A","B","B","B","B","A","A","A","A","B","B","A","B","B","B","A"),
-    var2=c("B","B","B","A","A","B","B","B","B","B","B","B","B","B","B","B","B","B","A","A"),
-    var3=c("B","B","B","A","A","B","B","A","A","A","A","A","A","A","B","B","A","A","A","B"),
     dayIn=c("2/1/2017", "7/1/2017", "13/1/2017", "3/1/2017", "12/1/2017",
                 "2/1/2017", "7/1/2017", "18/1/2017", "20/1/2017", "4/1/2017",
                 "18/1/2017", "21/1/2017", "5/1/2017", "9/1/2017", "14/1/2017",
@@ -16,16 +25,8 @@ shinyServer(function(input, output, session) {
     dayOut=c("7/1/2017", "13/1/2017", "17/1/2017", "12/1/2017", "20/1/2017",
                 "7/1/2017", "18/1/2017", "20/1/2017", "25/1/2017", "18/1/2017",
                 "21/1/2017", "28/1/2017", "11/1/2017", "14/1/2017", "19/1/2017",
-                "17/1/2017", "19/1/2017", "27/1/2017", "20/1/2017", "25/1/2017"),
-    samp=c("14/1/2017", "14/1/2017", "14/1/2017", "7/1/2017", "7/1/2017",
-                "4/1/2017", "18/1/2017", "18/1/2017", "18/1/2017", "13/1/2017",
-                "13/1/2017", "13/1/2017", "10/1/2017", "12/1/2017", "12/1/2017",
-                "9/1/2017", "26/1/2017", "26/1/2017", "19/1/2017", "19/1/2017")
+                "17/1/2017", "19/1/2017", "27/1/2017", "20/1/2017", "25/1/2017")
     
-    
-
-#    dayOut=as.integer(c(7,13,17,12,20,7,18,20,25,18,21,28,11,14,19,17,19,27,25,25)),
-#    samp=as.integer(c(14,14,14,7,7,4,18,18,18,13,13,13,10,12,12,9,26,26,19,19))
   )
 
   
@@ -47,13 +48,13 @@ shinyServer(function(input, output, session) {
   
   
   
-  # Disable generate plan button if variables not selected
+# Disable generate plan button if variables not selected
 
   observe({
     toggleState("gen",
-    input$ptid!="" & input$wardid!="" & input$dayin!="" & input$dayout!="" & input$sampledat!="" &
+    input$ptid!="" & input$wardid!="" & input$sampledat!="" &
       anyDuplicated(c(
-        input$ptid, input$wardid, input$floor, input$dayin, input$dayout,
+        input$ptid, input$wardid, 
         input$sampledat, input$catvars
       )
       )==0
@@ -68,7 +69,7 @@ shinyServer(function(input, output, session) {
 
   
   
- # Disable plan tab until plan is generated
+# Disable plan tab until plan is generated
   
   observe({
     toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0)
@@ -95,181 +96,72 @@ shinyServer(function(input, output, session) {
     html
   })
   
-  ## Load data
+# Load data
   
-  datUser<-reactive({
-    if(is.null(input$file1)){
+## Core data
+  
+  coreDatUser<-reactive({
+    if(is.null(input$fileCore)){
       return(NULL)
     } else {
       return(TRUE)
     }
   })
   
-  output$fileUploaded <- reactive({
-    return(!is.null(datUser()))
+  output$coreFileUploaded <- reactive({
+    return(!is.null(coreDatUser()))
   })
-  outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+  outputOptions(output, 'coreFileUploaded', suspendWhenHidden=FALSE)
+  
+  output$mvmtFileUploaded <- reactive({
+    return(!is.null(mvmDatUser()))
+  })
+  outputOptions(output, 'coreFileUploaded', suspendWhenHidden=FALSE)
   
   
-  dat<-reactive({
-    inFile <- input$file1
+  coreDat<-reactive({
+    inFile <- input$fileCore
     if(is.null(inFile) | input$datrad=="dum"){
-      as.data.frame(datDum)
+      as.data.frame(coreDum)
     } else {
       as.data.frame(read.csv(inFile$datapath, header=T, stringsAsFactors=F))
     }
     
   })
   
+## Ward movements data
   
-
-  
-  # Display preview of data
-  
-  output$previewDat<-renderTable(
-    if(!(is.null(input$file1) & input$datrad=="user")){
-      dat()
-    }
-    )
-  
-  # set columns with each data item
-  ### if dummy data loaded, select appropriate col
-  
-   output$ptidUi<-renderUI({
-    if(input$datrad=="dum"){
-      selectizeInput('ptid', label='Unique patient identifier', 
-                     choices=names(dat()), selected="ptId")
+  mvmtDatUser<-reactive({
+    if(is.null(input$fileMvmt)){
+      return(NULL)
     } else {
-      selectizeInput('ptid', label='Unique patient identifier', 
-                     choices=names(dat()),
-                     options=list(
-                       placeholder="Select variable",
-                       onInitialize = I('function() { this.setValue(""); }')))
-  }
-  })
-   
-   outputOptions(output, 'ptidUi', suspendWhenHidden=FALSE)
-  
-  output$wardidUi<-renderUI({
-    if(input$datrad=="dum"| is.null(input$file1)){
-      selectizeInput('wardid', label='Ward identifier', 
-                     choices=names(dat()), selected="wardId")
-    } else {
-      selectizeInput('wardid', label='Ward identifier', 
-                     choices=names(dat()),
-                     options=list(
-                       placeholder="Select variable",
-                       onInitialize = I('function() { this.setValue(""); }')))
+      return(TRUE)
     }
   })
   
-  outputOptions(output, 'wardidUi', suspendWhenHidden=FALSE)
+  output$mvmtFileUploaded <- reactive({
+    return(!is.null(mvmtDatUser()))
+  })
+  outputOptions(output, 'mvmtFileUploaded', suspendWhenHidden=FALSE)
   
-  output$floorUi<-renderUI({
-    if(input$datrad=="dum" | is.null(input$file1)){
-      selectizeInput('floor', label="Floor",
-                     choices=names(dat()), selected="floor")
-      
+  output$mvmtFileUploaded <- reactive({
+    return(!is.null(mvmtDatUser()))
+  })
+  outputOptions(output, 'mvmtFileUploaded', suspendWhenHidden=FALSE)
+  
+  
+  mvmtDat<-reactive({
+    inFileM <- input$fileMvmt
+    if(is.null(inFileM) | input$datrad=="dum"){
+      as.data.frame(mvmtDum)
     } else {
-      selectizeInput('floor', label="Floor", 
-                     choices=names(dat()),
-                     options=list(
-                       placeholder="Select variable", 
-                       onInitialize = I('function() {this.setValue("");}')
-                     ))
+      as.data.frame(read.csv(inFileM$datapath, header=T, stringsAsFactors=F))
     }
     
   })
-  outputOptions(output, "floorUi", suspendWhenHidden = FALSE)
-  
-  output$dayinUi<-renderUI({
-    if(input$datrad=="dum"){
-      selectizeInput('dayin', label='Day into ward', 
-                     choices=names(dat()), selected="dayIn")
-    } else {
-      selectizeInput('dayin', label='Day into ward', 
-                     choices=names(dat()),
-                     options=list(
-                       placeholder="Select variable",
-                       onInitialize = I('function() { this.setValue(""); }')))
-    }
-  })
-  outputOptions(output, "dayinUi", suspendWhenHidden = FALSE)
-  
-  output$dayoutUi<-renderUI({
-    if(input$datrad=="dum"){
-      selectizeInput('dayout', label='Day out of ward', 
-                     choices=names(dat()), selected="dayOut")
-    } else {
-      selectizeInput('dayout', label='Day out of ward', 
-                     choices=names(dat()),
-                     options=list(
-                       placeholder="Select variable",
-                       onInitialize = I('function() { this.setValue(""); }')))
-    }
-  })
-  outputOptions(output, "dayoutUi", suspendWhenHidden = FALSE)
   
   
-  output$sampledateUi<-renderUI({
-    if(input$datrad=="dum"){
-      selectizeInput('sampledat', label='Sample date', 
-                     choices=names(dat()), selected="samp")
-    } else {
-      selectizeInput('sampledat', label='Sample date', 
-                     choices=names(dat()),
-                     options=list(
-                       placeholder="Select variable",
-                       onInitialize = I('function() { this.setValue(""); }')))
-    }
-  })
-  
-  outputOptions(output, "sampledateUi", suspendWhenHidden = FALSE)
-  
-  
-  output$catvarUi<-renderUI({
-    if(input$datrad=="dum"){
-      selectizeInput('catvars', label='Categorical variables', 
-                     choices=names(dat()), selected=c("var1", "var2", "var3"), multiple=T)
-    } else {
-      selectizeInput('catvars', label='Categorical variables', 
-                     choices=names(dat()), multiple=T,
-                     options=list(
-                       placeholder="Select one or more variables",
-                       onInitialize = I('function() { this.setValue(""); }')))
-    }
-  })
-
-  outputOptions(output, "catvarUi", suspendWhenHidden = FALSE)
- 
-
-  output$filVarsUi<-renderUI({
-     if(length(input$catvars)>=1){
-       lapply(c(1:length(input$catvars)), function(i) {
-         selectInput(
-           inputId=paste0("fil",i),
-           label=input$catvars[i], 
-           choices=c(levels(dat()[,input$catvars[i]])),
-           selected=levels(dat()[,input$catvars[i]]),
-           multiple=T)
-       })
-     }
-  })
-  outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
-
-
-  
-  # wards to display in plan
-  output$wardFilUi<-renderUI({
-    selectInput('wardFil', label="Display wards",
-                choices=unique(dat()[,input$wardid]),
-                selected=unique(dat()[,input$wardid]),
-                multiple=T)
-    
-  })
-  
-  
-  # Genetic distance data
+## Genetic distance data
   
   genUser<-reactive({
     if(is.null(input$fileGen)){
@@ -284,7 +176,7 @@ shinyServer(function(input, output, session) {
   })
   outputOptions(output, 'genFileUploaded', suspendWhenHidden=FALSE)
   
-
+  
   genDat<-reactive({
     inFileG <- input$fileGen
     if(is.null(inFileG) | input$datrad=="dum"){
@@ -296,19 +188,188 @@ shinyServer(function(input, output, session) {
   })
   
   
-  ## update genetic distance input if dummy data loaded
-  observe({
-    if(input$datrad=="dum"){
-      updateCheckboxInput(session, "genDis", value=TRUE)
+  # Display preview of data
+  
+  ## Core data
+  
+  output$previewCore<-renderTable(
+    if(!(is.null(input$fileCore) & input$datrad=="user")){
+      coreDat()
     }
-    if(input$datrad=="user"){
-      updateCheckboxInput(session, "genDis", value=FALSE)
+    )
+  
+  ## Movement data
+  
+  output$previewMvmt<-renderTable(
+    if(!(is.null(input$fileMvmt) & input$datrad=="user")){
+      mvmtDat()
+    }
+  )
+
+  
+  ## Genetic distance data
+  
+  output$previewGen<-renderTable({genDat()})
+  
+  
+  # set columns with each data item
+  ### if dummy data loaded, select appropriate col
+  
+  ## Core data
+  
+   output$ptidUi<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('ptid', label='Unique patient identifier', 
+                     choices=names(coreDat()), selected="ptId")
+    } else {
+      selectizeInput('ptid', label='Unique patient identifier', 
+                     choices=names(coreDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+  }
+  })
+   
+   outputOptions(output, 'ptidUi', suspendWhenHidden=FALSE)
+  
+   output$admDateUi<-renderUI({
+     if(input$datrad=="dum"){
+       selectizeInput('admDat', label='Sample date', 
+                      choices=names(coreDat()), selected="admDat")
+     } else {
+       selectizeInput('admDat', label='Sample date', 
+                      choices=names(coreDat()),
+                      options=list(
+                        placeholder="Select variable",
+                        onInitialize = I('function() { this.setValue(""); }')))
+     }
+   })
+   
+   outputOptions(output, "admDateUi", suspendWhenHidden = FALSE)
+   
+
+  output$sampledateUi<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('sampledat', label='Sample date', 
+                     choices=names(coreDat()), selected="samp")
+    } else {
+      selectizeInput('sampledat', label='Sample date', 
+                     choices=names(coreDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
     }
   })
   
-
+  outputOptions(output, "sampledateUi", suspendWhenHidden = FALSE)
   
-  ## set appropriate columns for gen dist data 
+  output$wardSampUi<-renderUI({
+    if(input$datrad=="dum"| is.null(input$fileCore)){
+      selectizeInput('wardSamp', label='Ward identifier', 
+                     choices=names(coreDat()), selected="wardSamp")
+    } else {
+      selectizeInput('wardSamp', label='Ward identifier', 
+                     choices=names(coreDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
+  
+  output$catvarUi<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('catvars', label='Categorical variables (optional)', 
+                     choices=names(coreDat()), selected=c("var1", "var2", "var3"), multiple=T)
+    } else {
+      selectizeInput('catvars', label='Categorical variables (optional)', 
+                     choices=names(coreDat()), multiple=T,
+                     options=list(
+                       placeholder="Select one or more variables",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
+  outputOptions(output, "catvarUi", suspendWhenHidden = FALSE)
+  
+  ## Movement data
+  
+
+  output$wardPtUi<-renderUI({
+    if(input$datrad=="dum"| is.null(input$fileMvmt)){
+      selectizeInput('wardPt', label='Ward identifier', 
+                     choices=names(mvmtDat()), selected="ptId")
+    } else {
+      selectizeInput('wardid', label='Ward identifier', 
+                     choices=names(mvmtDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
+  output$wardidUi<-renderUI({
+    if(input$datrad=="dum"| is.null(input$fileMvmt)){
+      selectizeInput('wardid', label='Ward identifier', 
+                     choices=names(mvmtDat()), selected="wardId")
+    } else {
+      selectizeInput('wardid', label='Ward identifier', 
+                     choices=names(mvmtDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  
+  outputOptions(output, 'wardidUi', suspendWhenHidden=FALSE)
+  
+  
+  output$floorUi<-renderUI({
+    if(input$datrad=="dum" | is.null(input$fileMvmt)){
+      selectizeInput('floor', label="Floor (optional)",
+                     choices=names(mvmtDat()), selected="floor")
+      
+    } else {
+      selectizeInput('floor', label="Floor (optional)", 
+                     choices=names(mvmtDat()),
+                     options=list(
+                       placeholder="Select variable", 
+                       onInitialize = I('function() {this.setValue("");}')
+                     ))
+    }
+    
+  })
+  outputOptions(output, "floorUi", suspendWhenHidden = FALSE)
+  
+  output$dayinUi<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('dayin', label='Day into ward', 
+                     choices=names(mvmtDat()), selected="dayIn")
+    } else {
+      selectizeInput('dayin', label='Day into ward', 
+                     choices=names(mvmtDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  outputOptions(output, "dayinUi", suspendWhenHidden = FALSE)
+  
+  output$dayoutUi<-renderUI({
+    if(input$datrad=="dum"){
+      selectizeInput('dayout', label='Day out of ward', 
+                     choices=names(mvmtDat()), selected="dayOut")
+    } else {
+      selectizeInput('dayout', label='Day out of ward', 
+                     choices=names(mvmtDat()),
+                     options=list(
+                       placeholder="Select variable",
+                       onInitialize = I('function() { this.setValue(""); }')))
+    }
+  })
+  outputOptions(output, "dayoutUi", suspendWhenHidden = FALSE)
+  
+  # Genetic distance data
   
   output$genPt1Ui<-renderUI({
     if(input$datrad=="dum"){
@@ -356,26 +417,73 @@ shinyServer(function(input, output, session) {
   
   outputOptions(output, "genPtDistUi", suspendWhenHidden = FALSE)
   
-  # show preview of genetic distance data
-  output$previewGen<-renderTable({genDat()})
+
+  
+  
+ # filter variables 
+
+  output$filVarsUi<-renderUI({
+     if(length(input$catvars)>=1){
+       lapply(c(1:length(input$catvars)), function(i) {
+         selectInput(
+           inputId=paste0("fil",i),
+           label=input$catvars[i], 
+           choices=c(levels(coreDat()[,input$catvars[i]])),
+           selected=levels(coreDat()[,input$catvars[i]]),
+           multiple=T)
+       })
+     }
+  })
+  outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
+
+  
+  # wards to display in plan
+  output$wardFilUi<-renderUI({
+    selectInput('wardFil', label="Display wards",
+                choices=unique(mvmtDat()[,input$wardid]),
+                selected=unique(mvmtDat()[,input$wardid]),
+                multiple=T)
+    
+  })
+  
+  outputOptions(output, "wardFilUi", suspendWhenHidden = FALSE)
+  
+  # wards to display in epicurves
+  output$wardFilEpiUi<-renderUI({
+    selectInput('wardFilEpi', label="Display wards",
+                choices=unique(coreDat()[,input$wardSamp]),
+                selected=unique(coreDat()[,input$wardSamp]),
+                multiple=T)
+    
+  })
+  
+  
+  
+  
+  ## update genetic distance input if dummy data loaded
+  observe({
+    if(input$datrad=="dum"){
+      updateCheckboxInput(session, "genDis", value=TRUE)
+    }
+    if(input$datrad=="user"){
+      updateCheckboxInput(session, "genDis", value=FALSE)
+    }
+  })
   
 
   # validate inputs - generate error messages 
   
   output$warn<-renderText({
-    if((!is.null(input$file1)) | input$datrad=="dum"){
+    if((!is.null(input$fileCore)) | input$datrad=="dum"){
       validate(
         ## variables not selected
-        need(input$ptid!="" & input$wardid!="" & input$dayin!="" &
-               input$dayout!="" & input$sampledat!="",
+        need(input$ptid!="" & input$wardSamp!="" & input$sampledat!="",
              "Please select variables"),
         ## same variable selected for >1 field
-        if(input$ptid!="" & input$wardid!="" & input$dayin!="" &
-           input$dayout!="" & input$sampledat!=""){
+        if(input$ptid!="" & input$wardSamp!=""  & input$sampledat!=""){
           need(
             anyDuplicated(c(
-              input$ptid, input$wardid, input$dayin, input$dayout,
-              input$sampledat, input$catvars
+              input$ptid, input$wardSamp, input$sampledat, input$catvars
             )
             )==0, "Please select each variable only once")}
       )
@@ -404,119 +512,132 @@ shinyServer(function(input, output, session) {
         # exclude data for wards not selected in the plan
         if(input$gen==1 & input$goagain==0){
           datWard<-reactive({
-            dat()
+            mvmtDat()
           })
         } else {
           datWard<-reactive({
-            datWard1<-dat()
+            datWard1<-mvmtDat()
             datWard1[which(datWard1[,input$wardid]%in%input$wardFil),]
           })
         }
+        
+        # exclude data for wards not selected in epi curve
+        if(input$gen==1 & input$goagain==0){
+          datWardCore<-reactive({
+            coreDat()
+          })
+        } else {
+          datWardCore<-reactive({
+            datWardCore1<-coreDat()
+            datWardCore1[which(datWardCore1[,input$wardSamp]%in%input$wardFilEpi),]
+          })
+        }
+        
+        
+
       
+      # rename and format the variables in dat for assigned cols 
       
-      # rename the variables in dat for assigned cols to generic
+      ## Core data 
+        
+      coreDatNam<-datWardCore()
+      colnames(coreDatNam)[which(colnames(coreDatNam)==input$ptid)]<-"ptId"
+      colnames(coreDatNam)[which(colnames(coreDatNam)==input$admDat)]<-"admDat"
+      colnames(coreDatNam)[which(colnames(coreDatNam)==input$sampledat)]<-"samp"  
+      colnames(coreDatNam)[which(colnames(coreDatNam)==input$wardSamp)]<-"wardSamp"  
+      
+      coreDatNam$admDat<-dmy(coreDatNam$admDat)
+      coreDatNam$samp<-dmy(coreDatNam$samp)
+      coreDatNam$wardSamp<-as.factor(coreDatNam$wardSamp)
+      
+      if(length(input$catvars)>=1){
+        lapply(input$catvars, function(i){
+          coreDatNam[,i]<<-as.factor(coreDatNam[,i])
+        })
+      }
+        
+      ## Movement data  
+        
       datNam<-datWard()
-      colnames(datNam)[which(colnames(datNam)==input$ptid)]<-"ptId"
+      colnames(datNam)[which(colnames(datNam)==input$wardPt)]<-"ptId"
       colnames(datNam)[which(colnames(datNam)==input$wardid)]<-"wardId" 
       colnames(datNam)[which(colnames(datNam)==input$floor)]<-"floor"
       colnames(datNam)[which(colnames(datNam)==input$dayin)]<-"dayIn"  
       colnames(datNam)[which(colnames(datNam)==input$dayout)]<-"dayOut"  
-      colnames(datNam)[which(colnames(datNam)==input$sampledat)]<-"samp"  
-      
-      # format day in, out, sample as date
+
       datNam$dayIn<-dmy(datNam$dayIn)
       datNam$dayOut<-dmy(datNam$dayOut)
-      datNam$samp<-dmy(datNam$samp)
-      
-      # format categorical vars as factors
-      if(length(input$catvars)>=1){
-        lapply(input$catvars, function(i){
-          datNam[,i]<<-as.factor(datNam[,i])
-        })
-      }
-      
-      # update select inputs to relfect catvars
-
-      if(length(input$catvars)>=1){
-        lapply(c(1:length(input$catvars)), function(i){
-          updateSelectInput(session, paste0("fil",i),
-                            choices=levels(datNam[,input$catvars[i]]),
-                            selected=levels(datNam[,input$catvars[i]]))
-        })
-        }
-
-      
-      # format patient and ward ids as factors
-      datNam$ptId<-as.factor(datNam$ptId)
+    
       datNam$wardId<-as.factor(datNam$wardId)
-     
-      # calc largest number of cases on a ward on any day
       
-      maxCases<-
-        max(
-          unlist(
-            lapply(unique(datNam$wardId), function(j){
-              max(plyr::count(
-                unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
-                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1),1)
-                }))
-             )$freq)
-            })
-          )
-        )
+      ## Genetic distance data 
       
+      genDatNam<-genDat()
+      colnames(genDatNam)[which(colnames(genDatNam)==input$genPt1)]<-"ptId1"
+      colnames(genDatNam)[which(colnames(genDatNam)==input$genPt2)]<-"ptId2"
+      colnames(genDatNam)[which(colnames(genDatNam)==input$genPtDist)]<-"dist"
+
+      # Join core data to movement data
+      datNam<-
+        left_join(datNam, coreDatNam[c("ptId", "samp", input$catvars)], by="ptId")
+        
+      # Format pt id as factor
+      
+      coreDatNam$ptId<-as.factor(coreDatNam$ptId)
+      datNam$ptId<-as.factor(datNam$ptId)
+            
 
     # set up ui in 'plan' tab
-    output$dayUi<-renderUI({
-      sliderInput('day', label = 'Day', 
-                  min=min(datNam$dayIn), max=max(datNam$dayIn),
-                                 value=min(datNam$dayIn), step=1) 
-    })
-    
-    
-    # patient ids
-    output$ptidFilUi<-renderUI({
-      selectInput("ptId", label="Patient ID",
-                  choices=unique(datNam$ptId),
-                  selected=unique(datNam$ptId),
-                  multiple=T)
+      ## Day slider
       
-    })
-    
-    outputOptions(output, 'ptidFilUi', suspendWhenHidden=FALSE)
-    
-
-    ## update pl input
-    updateSelectizeInput(session, "pl", choices=c(
-      "Patient ID" = "ptId",
-      "Infection period" = "infec", 
-      "Place acquired" = "acq",
-      input$catvars))
-
-    
-    
-    ## Genetic distance (if used)
-
-    ## change column names to match data 
-    genDatNam<-genDat()
-    colnames(genDatNam)[which(colnames(genDatNam)==input$genPt1)]<-"ptId1"
-    colnames(genDatNam)[which(colnames(genDatNam)==input$genPt2)]<-"ptId2"
-    colnames(genDatNam)[which(colnames(genDatNam)==input$genPtDist)]<-"dist"
-    
- 
-    if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-  
-      ## add option to colour points by genetic dist
+      output$dayUi<-renderUI({
+        sliderInput('day', label = 'Day', 
+                    min=min(datNam$dayIn), max=max(datNam$dayIn),
+                    value=min(datNam$dayIn), step=1) 
+      })
       
+      ## patient ids
+      output$ptidFilUi<-renderUI({
+        selectInput("ptId", label="Patient ID",
+                    choices=unique(datNam$ptId),
+                    selected=unique(datNam$ptId),
+                    multiple=T)
+        
+      })
+      
+      outputOptions(output, 'ptidFilUi', suspendWhenHidden=FALSE)
+      
+      ## Colour characteristics
       updateSelectizeInput(session, "pl", choices=c(
         "Patient ID" = "ptId",
         "Infection period" = "infec", 
         "Place acquired" = "acq",
-        "Genetic distance" = "gendis",
-        input$catvars
-      ))  
-     
-     ## genetic distance inputs 
+        input$catvars))
+      
+      
+      ## Filter variables
+      if(length(input$catvars)>=1){
+        lapply(c(1:length(input$catvars)), function(i){
+          updateSelectInput(session, paste0("fil",i),
+                            choices=levels(coreDatNam[,input$catvars[i]]),
+                            selected=levels(coreDatNam[,input$catvars[i]]))
+        })
+      }
+      
+      ## Genetic distance (if used)
+      
+      ###  Add option to colour points by genetic dist 
+      
+      if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+        
+        updateSelectizeInput(session, "pl", choices=c(
+          "Patient ID" = "ptId",
+          "Infection period" = "infec", 
+          "Place acquired" = "acq",
+          "Genetic distance" = "gendis",
+          input$catvars
+        ))  
+
       ### index case
       output$genDIndexUi<-renderUI({
         selectInput("genDIndex", label="Genetic distance index case", 
@@ -533,18 +654,36 @@ shinyServer(function(input, output, session) {
                     value=min(genDatNam[,'dist']))
       })
       outputOptions(output, 'genDistUi', suspendWhenHidden=FALSE)
-    }
-
+      }
+      
     
+      # Set up schematic plan
+    
+      ## calc largest number of cases on a ward on any day
+      
+      maxCases<-
+        max(
+          unlist(
+            lapply(unique(datNam$wardId), function(j){
+              max(plyr::count(
+                unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
+                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1),1)
+                }))
+              )$freq)
+            })
+          )
+        )
+      
+     
 
-    # regenerate the plan if aspect ratio is changed
-
-        # set up aspect ratio  - initially equal
+        ## Aspect ratio of wards  - initially equal
         aspTab<-data.frame(
           asp=c(0,1,2,3,4),
           wid=c(6,5,4,3,2),
           ht=c(2,3,4,5,6)
         )
+        
+        ## Regenerate the plan if aspect ratio is changed
         
         if(is.null(input$asp)){
           wardWid<-aspTab$wid[aspTab$asp==2]
@@ -555,8 +694,11 @@ shinyServer(function(input, output, session) {
         }
         
         
-        ## Floor/ ward plan - coordinates
+        ## Coordinates of ward plan
         
+        ### Floors
+        
+        ### calculate number of floors (2 per row if floors not provided)
         
         if(input$floor==""){
           flrs<-data.frame(
@@ -576,8 +718,7 @@ shinyServer(function(input, output, session) {
             datNam$nFloor[datNam$floor==k]<<-j
           })
         }
-        
- 
+
         plan <-
           datNam %>%
           select(wardId, nFloor) %>%
@@ -586,13 +727,12 @@ shinyServer(function(input, output, session) {
 
         plan$id<-seq(1:nrow(plan))
         
-        # ward ids
+        ### Wards 
         wardIdLookUp<-data.frame(
           id=plan$id,
           wardId=plan$wardId
           )
 
-        
         plan<-
           plan %>%
           group_by(nFloor) %>%
@@ -647,7 +787,7 @@ shinyServer(function(input, output, session) {
           y=c(0, max(plan$yMax)+0.2, max(plan$yMax)+0.2, 0)
         )
         
-        ## Coorindates that data can go into
+        ## Coorindates that points can go into
         
         ## how many rows and cols per ward
         nCols<-round(sqrt(maxCases*(wardWid/wardHt)))
@@ -690,12 +830,12 @@ shinyServer(function(input, output, session) {
           dplyr::mutate(y=yMin+(((yMax-yMin)/nRows)*rowN)-(((yMax-yMin)/nRows)/2))              
         
         
-        # Image to be used as background for plan
+        ## Image to be used as background for plan
 
-        ## aspect ratio of plan
+        ### aspect ratio of plan
         aspPr<-(max(plan$xMax)+0.2)/(max(plan$yMax)+0.2)
 
-        ## name of file
+        ### name of file
         plName<-tempfile(fileext='.png')
         plImage<-renderImage({
           plName<-tempfile(fileext='.png')
@@ -733,34 +873,32 @@ shinyServer(function(input, output, session) {
         }, deleteFile=T)
         
       plPath<-plImage(session)$src
+      
+      
+      # Plot floor plan - leaflet
+      
+      ## set bounds of the map 
+      bounds<-c(min(plan$yMin)-0.2, min(plan$xMin)-0.2, max(plan$yMax)+0.2, max(plan$xMax)+0.2)
+      
+      ## scale by 100 so that it isn't stupidly small
+      bounds<-bounds*100
+        
+      ## ward labels
+      wardLab<-
+        plan %>%
+        ungroup() %>%
+        select(wardId, xMid, yMid, yMax) %>%
+        mutate(xMid=xMid*100) %>%
+        mutate(yMid=yMid*100)
+      
+      output$polDat<-renderTable(wardLab)
+      
+      ## also change the coordinates by 1000
+      leafCoord<-
+        datCoord %>%
+        dplyr::select(id, nBed, rowN, colN, x, y, totWard, nWard) %>%
+        mutate(x=x*100, y=y*100)
 
- 
-        # Plot floor plan - leaflet  
-        ## set bounds of the map 
-        bounds<-c(min(plan$yMin)-0.2, min(plan$xMin)-0.2, max(plan$yMax)+0.2, max(plan$xMax)+0.2)
-        #    bounds<-c(min(plan$yMin)-0.2, min(plan$xMin)-0.2-2, max(plan$yMax)+0.2, max(plan$xMax)+0.2)
-        
-        ## scale by 100 so that it isn't stupidly small
-        bounds<-bounds*100
-        
-        ## ward labels
-        wardLab<-
-          plan %>%
-          ungroup() %>%
-          select(wardId, xMid, yMid, yMax) %>%
-          mutate(xMid=xMid*100) %>%
-          mutate(yMid=yMid*100)
-#          mutate(yMid=yMid*100)
-        
-        output$polDat<-renderTable(wardLab)
-        
-        
-        ## also change the coordinates
-        leafCoord<-
-          datCoord %>%
-          dplyr::select(id, nBed, rowN, colN, x, y, totWard, nWard) %>%
-          mutate(x=x*100, y=y*100)
-        
         leafCoord<-
           left_join(leafCoord, wardIdLookUp, by="id")
         
@@ -771,7 +909,7 @@ shinyServer(function(input, output, session) {
         
         leafCoord$wardId<-as.character(leafCoord$wardId)
         
-        ## assign coordinates to data 
+        # assign coordinates to data 
         
         ## identify first to fill ward
         dat1<-datNam
@@ -781,13 +919,12 @@ shinyServer(function(input, output, session) {
           arrange(dayIn) %>%
           mutate(wardN=seq(1:length(ptId)))
         
-        
         ## change to NA if wardN is larger than the n in the ward
         dat1<-
           dat1 %>%
           mutate(wardN=ifelse(wardN>maxCases, NA, wardN))
         
-        ### assign ward position to data
+        ## assign ward position to data
         suppressWarnings(
           sapply(1:max(count(dat1, wardId)$n), function(i) {
             
@@ -800,7 +937,7 @@ shinyServer(function(input, output, session) {
               select(wardId, wardN)  
             
             
-            # join the free ward positions to the ids that need them (second in without a loc)
+         ## join the free ward positions to the ids that need them (second in without a loc)
             dat1<<-
               rbind(
                 dat1 %>%
@@ -817,31 +954,30 @@ shinyServer(function(input, output, session) {
             
           })
         )  
-        
-        
-        ### join to coordinates
+
+        ## join to coordinates
         dat1$wardId<-as.character(dat1$wardId)
         dat1<-left_join(dat1, leafCoord, by=c("wardId", "wardN"))  
         
         
-        ## Generate genetic distance variable 
- 
+        # Generate variables
+        
+        ## Genetic distance
+        
         datGen<-reactive({
           if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-      #    req(input$genDIndex)
-      #    req(input$genDist)
-          genDistCl<-filter(genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
-          dat1$gendis<-"N"
-          dat1$gendis[which(dat1$ptId==input$genDIndex)]<-"index"
-          dat1$gendis[which(dat1$ptId%in%genDistCl)]<-"Y"
-          dat1$gendis<-factor(dat1$gendis, levels=c("index", "Y", "N"))
-          dat1 
+            genDistCl<-filter(genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
+            dat1$gendis<-"N"
+            dat1$gendis[which(dat1$ptId==input$genDIndex)]<-"index"
+            dat1$gendis[which(dat1$ptId%in%genDistCl)]<-"Y"
+            dat1$gendis<-factor(dat1$gendis, levels=c("index", "Y", "N"))
+            dat1 
           } else {dat1}
           
         })
-
         
-        ## Generate infection period and hosp acquired variables 
+        
+        ## Infection period and hosp acquired  
         datInf<-reactive({
           datInf1<-as.data.frame(datGen())
           datInf1$symStart<-datInf1$samp-input$sampDel
@@ -872,31 +1008,8 @@ shinyServer(function(input, output, session) {
           
           datInf1$acq<-factor(datInf1$acq, levels=c("Hospital", "Community"))
           as.data.frame(datInf1)
-
+          
         })
-        
-        
-        ## render map
-
-        output$map<-renderLeaflet({
- 
-          leaflet(options= leafletOptions(
-            crs=leafletCRS(crsClass='L.CRS.Simple'),minZoom= -5, maxZoom = 5)) %>%
-            fitBounds(lng1=bounds[2], lat1=bounds[1], lng2=bounds[3], lat2=bounds[4]) %>%
-            htmlwidgets::onRender(paste0("
-                                         function(el, t) {
-                                         var myMap = this;
-                                         var bounds = [[",bounds[1],",",bounds[2],"],[[",bounds[3],",",bounds[4],"]]];
-                                         var image = new L.ImageOverlay(
-                                         '",plPath,"',
-                                         bounds);
-                                         image.addTo(myMap);
-                                         image.setOpacity(1);
-                                         image.bringToBack();
-                                         myMap.setMaxBounds(bounds);
-                                         }"))
-            
-    })
         
         
         ## assign colours to data
@@ -929,8 +1042,7 @@ shinyServer(function(input, output, session) {
           
         })
         
-        
-        
+
         ## filter data by day 
         datDay<-reactive({
           datDay1<-datCol()
@@ -959,6 +1071,30 @@ shinyServer(function(input, output, session) {
           
         })
         
+        
+        # Render plan
+        
+        output$map<-renderLeaflet({
+          
+          leaflet(options= leafletOptions(
+            crs=leafletCRS(crsClass='L.CRS.Simple'),minZoom= -5, maxZoom = 5)) %>%
+            fitBounds(lng1=bounds[2], lat1=bounds[1], lng2=bounds[3], lat2=bounds[4]) %>%
+            htmlwidgets::onRender(paste0("
+                                         function(el, t) {
+                                         var myMap = this;
+                                         var bounds = [[",bounds[1],",",bounds[2],"],[[",bounds[3],",",bounds[4],"]]];
+                                         var image = new L.ImageOverlay(
+                                         '",plPath,"',
+                                         bounds);
+                                         image.addTo(myMap);
+                                         image.setOpacity(1);
+                                         image.bringToBack();
+                                         myMap.setMaxBounds(bounds);
+                                         }"))
+            
+        })
+        
+        ## add points to plan
         
         observe({
           if(input$pan=="panPl"){
@@ -1002,6 +1138,8 @@ shinyServer(function(input, output, session) {
           
         })
         
+        ## add pop ups 
+        
         popContent<-function(ID){
           datPop<-datFil()
           
@@ -1042,11 +1180,12 @@ shinyServer(function(input, output, session) {
           
         })
         
+        
         # Epidemic curves
         
-        # Epi curve inputs
+        ## Inputs
         
-        ## patient characteristics - colour dropdown
+        ### patient characteristics - colour dropdown
         updateSelectizeInput(session, "plEpi", choices=c(
           "Place acquired" = "acqEpi",
           input$catvars))
@@ -1058,22 +1197,20 @@ shinyServer(function(input, output, session) {
               selectInput(
                 inputId=paste0("filEpi",i),
                 label=input$catvars[i], 
-                choices=c(levels(dat()[,input$catvars[i]])),
-                selected=levels(dat()[,input$catvars[i]]),
+                choices=c(levels(coreDatNam[,input$catvars[i]])),
+                selected=levels(coreDatNam[,input$catvars[i]]),
                 multiple=T)
             })
           }
         })
         outputOptions(output, "filVarsEpiUi", suspendWhenHidden = FALSE)
         
-        
-        
-        
-        ## start and end dates
+
+        ## start and end dates for epi curve
         
         output$epidatesUi<-renderUI({
-          dateRangeInput("epidates", label="Dates", min=min(datInf()$samp), max=max(datInf()$samp),
-                         start=min(datInf()$samp), end=max(datInf()$samp))
+          dateRangeInput("epidates", label="Dates", min=min(coreDatNam$samp), max=max(coreDatNam$samp),
+                         start=min(coreDatNam$samp), end=max(coreDatNam$samp))
                          
         })
 
@@ -1082,8 +1219,8 @@ shinyServer(function(input, output, session) {
          validate(need(!is.na(input$binwid), "Please select bar width"))
          if(length(input$epidates)!=2){
            validate(need(!is.na(input$binwid), "Please select bar width"))
-           brks1<-seq(min(datInf()$samp), max(datInf()$samp), input$binwid)
-           while(max(brks1)<max(datInf()$samp)){
+           brks1<-seq(min(coreDatNam$samp), max(coreDatNam$samp), input$binwid)
+           while(max(brks1)<max(coreDatNam$samp)){
              brks1<-c(brks1, max(brks1)+input$binwid)
            }
            brks1
@@ -1100,17 +1237,13 @@ shinyServer(function(input, output, session) {
         
 
        datEpi<-reactive({
-         datEpi1<-datInf()
+         datEpi1<-coreDatNam
          datEpi1<-
            datEpi1 %>%
-           mutate(acqEpi=ifelse(samp-firstDay>=input$hospAcqLenEpi, "Hospital", "Community")) 
+           mutate(acqEpi=ifelse(samp-admDat>=input$hospAcqLenEpi, "Hospital", "Community")) 
          datEpi1$acqEpi<-factor(datEpi1$acqEpi, levels=c("Hospital", "Community")) 
          datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
-         datEpi1<-
-           datEpi1 %>%
-           filter(samp>=dayIn & samp<dayOut)
-         
-         
+
          if(length(input$epidates)!=2 & input$colByVarEpi==FALSE){
          
            datEpi1$colEpi<-"#3c8dbc"
@@ -1229,18 +1362,22 @@ shinyServer(function(input, output, session) {
 
           output$epiplotWard<-renderPlot({
             validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
+            
+            if(input$datrad=="dum" | (input$mvmt==TRUE &  !is.null(input$fileMvmt))){
+              
+              wardLay<-unique(datInf()[,c("wardId", "nFloor", "nWard")])
+              wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
+              wardLay<-
+                wardLay %>% arrange(nFloor, nWard)
+              lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
+              lapply(1:nrow(wardLay), function(i){
+                lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
+              })
 
-            wardLay<-unique(datEpi()[,c("wardId", "nFloor", "nWard")])
-            wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
-            wardLay<-
-              wardLay %>% arrange(nFloor, nWard)
-            lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
-            lapply(1:nrow(wardLay), function(i){
-              lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
-            })
-       
+            }
+
             epiymax<-max(datEpiFil()%>%
-                           group_by(grpTot, wardId) %>%
+                           group_by(grpTot, wardSamp) %>%
                            summarise(tot=n()) %>%
                            ungroup() %>%
                            select(tot))
@@ -1248,7 +1385,7 @@ shinyServer(function(input, output, session) {
            
             if(input$colByVarEpi==FALSE){
             gs<-lapply(unique(wardLay[,"wardId"]), function(i){
-              ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
+              ggplot(datEpiFil()[datEpiFil()[,"wardSamp"]==i,])+
                 geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
                 scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
                 scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
@@ -1274,8 +1411,8 @@ shinyServer(function(input, output, session) {
             
             } else{
               gs<-lapply(unique(wardLay[,"wardId"]), function(i){
-                ggplot(datEpiFil()[datEpiFil()[,"wardId"]==i,])+
-                  geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardId"]==i,input$plEpi]), 
+                ggplot(datEpiFil()[datEpiFil()[,"wardSamp"]==i,])+
+                  geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardSamp"]==i,input$plEpi]), 
                                  breaks=as.numeric(brks()), col="white", closed="left")+
                   scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
                   scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+

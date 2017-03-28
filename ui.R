@@ -9,6 +9,7 @@ library(RColorBrewer)
 library(shinyjs)
 library(gridExtra)
 library(lubridate)
+library(gtable)
 
 
 
@@ -21,10 +22,11 @@ sidebar <- dashboardSidebar(
     menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
     menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
     conditionalPanel(condition="input.pan=='panPl'",
+                     uiOutput("wardFilUi"),
                      uiOutput("aspSliderUi")
                      ), 
     conditionalPanel(condition="input.pan=='panPl' | input.pan=='panEpi'",
-                     uiOutput("wardFilUi"),
+                     uiOutput("wardFilEpiUi"),
                      actionButton("goagain", "Update")   
                      )
   )
@@ -36,63 +38,81 @@ body <- dashboardBody(
   tabItems(
     tabItem(tabName = "panIn",
             fluidRow(
-              box(title="Load data", status="primary", solidHeader=TRUE,
-                radioButtons("datrad", label="", 
-                             choices=c("Upload data"= "user", "Load dummy data"="dum")),
-                conditionalPanel(condition="input.datrad=='user'",
-                                 fileInput('file1', label=NULL, accept=c("csv"))
-                )),
-              tags$head(
-                tags$style(HTML('#gen{background-color:orange}'))
+              column(width=6,
+                     box(title="Load data", width=NULL, status="primary", solidHeader=TRUE,
+                         radioButtons("datrad", label="", 
+                                      choices=c("Upload data"= "user", "Load dummy data"="dum")), 
+                         tags$head(
+                           tags$style(HTML('#gen{background-color:orange}'))),
+                         actionButton("gen", "Go"),
+                         textOutput("warn"),
+                         textOutput("warn1")
+                     ),
+                     tabBox(title="Identify variables",width=NULL, side="left", height=550,
+                            tabPanel(title="Core", value="coreTab",
+                                     conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
+                                                      uiOutput("ptidUi"),
+                                                      uiOutput("admDateUi"),
+                                                      uiOutput("sampledateUi"),
+                                                      uiOutput("wardSampUi"),
+                                                      uiOutput("catvarUi")
+                                                      )  
+                            ),
+                            tabPanel(title="Movements", value="wardTab",
+                                     conditionalPanel(condition="input.datrad=='dum' | output.mvmtFileUploaded",
+                                                      uiOutput("wardPtUi"),
+                                                      uiOutput("wardidUi"),
+                                                      uiOutput("dayinUi"),
+                                                      uiOutput("dayoutUi"), 
+                                                      uiOutput("floorUi")
+                                                     )
+                            ),
+                            tabPanel(title="Genetic distance", value="genTab", 
+                                     conditionalPanel(condition="input.datrad=='dum' | output.genFileUploaded",
+                                                      uiOutput("genPt1Ui"),
+                                                      uiOutput("genPt2Ui"),
+                                                      uiOutput("genPtDistUi")
+                                                      )
+                                     )
+                            )
               ),
-                  actionButton("gen", "Go"),
-                  textOutput("warn"),
-                  textOutput("warn1")
-            ),
-            fluidRow(
-              tabBox(title="Identify variables", side="left",
-                     tabPanel(title="Identifiers", value="idTab",
-                              conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                               uiOutput("ptidUi"),
-                                               uiOutput("wardidUi"))  
-                     ),
-                     tabPanel(title="Dates", value="datTab",
-                              conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                               uiOutput("dayinUi"),
-                                               uiOutput("dayoutUi"),
-                                               uiOutput("sampledateUi"))
-                     ),
-                     tabPanel(title="Optional", value="optTab", 
-                              conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                               uiOutput("floorUi"),
-                                               uiOutput("catvarUi"),
-                                               checkboxInput("genDis", label="Use genetic distance data", value=F),
-                                               conditionalPanel(condition="input.genDis & input.datrad=='user'",
-                                                                fileInput('fileGen', label=NULL, accept=c("csv"))
-                                                                ),
-                                               conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                                uiOutput("genPt1Ui"),
-                                                                uiOutput("genPt2Ui"),
-                                                                uiOutput("genPtDistUi")
-                                                                          )
-                                                                )
-                             
-                                               )
-         
-              ),tabBox(title="Preview data", side="left", 
-                       tabPanel(title="Patient data", value="datPrev",
-                                conditionalPanel(condition="input.datrad=='dum' | output.fileUploaded",
-                                                 div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
-                                                     tableOutput('previewDat')))
-                                ),
-                       tabPanel(title="Genetic distance data", value="genPrev", 
-                                conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                 div(style='overflow-x: scroll; height:300px; overflow-y: scroll', 
-                                                     tableOutput('previewGen')))
-                       )
+              column(width=6, 
+                     box(title="Select files", width=NULL, status="primary", solidHeader=TRUE, 
+                         conditionalPanel(condition="input.datrad=='user'",
+                                          tags$div(class="header", checked=NA,
+                                                   tags$p("Core patient data")
+                                          ),
+                                          fileInput('fileCore', label=NULL, accept=c("csv")),
+                                          checkboxInput("mvmt", label="Patient ward movements", value=F),
+                                          conditionalPanel(condition="input.mvmt", 
+                                                           fileInput("fileMvmt", label=NULL, accept=c("csv"))
+                                          ), 
+                                          checkboxInput("genDis", label="Genetic distance", value=F), 
+                                          conditionalPanel(condition="input.genDis", 
+                                                           fileInput("fileGen", label=NULL, accept=c("csv"))
+                                          )
+                         )
+                         
+                     ), 
+                     tabBox(title="Preview data",width=NULL, side="left", 
+                            tabPanel(title="Core", value="corePrev",
+                                     conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
+                                                      div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
+                                                          tableOutput('previewCore')))
+                            ),
+                            tabPanel(title="Movement", value="mvmtPrev",
+                                     conditionalPanel(condition="input.datrad=='dum' | output.mvmtFileUploaded",
+                                                      div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
+                                                          tableOutput('previewMvmt')))
+                            ),
+                            tabPanel(title="Genetic distance", value="genPrev", 
+                                     conditionalPanel(condition="input.datrad=='dum' | output.genFileUploaded",
+                                                      div(style='overflow-x: scroll; height:300px; overflow-y: scroll', 
+                                                          tableOutput('previewGen')))
+                                     )
+                            )
+                     )
               )
-    )
-    
     ),
 
     tabItem(tabName = "panPl", 
@@ -189,7 +209,7 @@ body <- dashboardBody(
                                                    "day-month" = "%d %b", 
                                                    "day-month-year" = "%d %b %y",
                                                    "month-year" = "%b %y", 
-                                                   "year" = "%y"
+                                                   "year" = "%Y"
                                                  ), selected="%d %b"
                                                  ),
                                      checkboxInput("vertLab", label="Vertical x axis labels", value=F),
