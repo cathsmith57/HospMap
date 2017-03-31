@@ -22,11 +22,11 @@ sidebar <- dashboardSidebar(
     menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
     menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
     conditionalPanel(condition="input.pan=='panPl'",
-                     uiOutput("wardFilUi"),
+#                     uiOutput("wardFilUi"),
                      uiOutput("aspSliderUi")
                      ), 
     conditionalPanel(condition="input.pan=='panPl' | input.pan=='panEpi'",
-                     uiOutput("wardFilEpiUi"),
+                     uiOutput("wardFilUi"),
                      actionButton("goagain", "Update")   
                      )
   )
@@ -45,8 +45,7 @@ body <- dashboardBody(
                          tags$head(
                            tags$style(HTML('#gen{background-color:orange}'))),
                          actionButton("gen", "Go"),
-                         textOutput("warn"),
-                         textOutput("warn1")
+                         textOutput("warn")
                      ),
                      tabBox(title="Identify variables",width=NULL, side="left", height=550,
                             tabPanel(title="Core", value="coreTab",
@@ -59,7 +58,7 @@ body <- dashboardBody(
                                                       )  
                             ),
                             tabPanel(title="Movements", value="wardTab",
-                                     conditionalPanel(condition="input.datrad=='dum' | output.mvmtFileUploaded",
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
                                                       uiOutput("wardPtUi"),
                                                       uiOutput("wardidUi"),
                                                       uiOutput("dayinUi"),
@@ -68,7 +67,7 @@ body <- dashboardBody(
                                                      )
                             ),
                             tabPanel(title="Genetic distance", value="genTab", 
-                                     conditionalPanel(condition="input.datrad=='dum' | output.genFileUploaded",
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
                                                       uiOutput("genPt1Ui"),
                                                       uiOutput("genPt2Ui"),
                                                       uiOutput("genPtDistUi")
@@ -78,21 +77,16 @@ body <- dashboardBody(
               ),
               column(width=6, 
                      box(title="Select files", width=NULL, status="primary", solidHeader=TRUE, 
-                         conditionalPanel(condition="input.datrad=='user'",
+                         conditionalPanel(condition="input.datrad=='user'", 
                                           tags$div(class="header", checked=NA,
-                                                   tags$p("Core patient data")
-                                          ),
-                                          fileInput('fileCore', label=NULL, accept=c("csv")),
-                                          checkboxInput("mvmt", label="Patient ward movements", value=F),
-                                          conditionalPanel(condition="input.mvmt", 
-                                                           fileInput("fileMvmt", label=NULL, accept=c("csv"))
-                                          ), 
-                                          checkboxInput("genDis", label="Genetic distance", value=F), 
-                                          conditionalPanel(condition="input.genDis", 
-                                                           fileInput("fileGen", label=NULL, accept=c("csv"))
-                                          )
-                         )
-                         
+                                                   tags$p("Core patient data")),
+                                          fileInput('fileCore', label=NULL, accept=c("csv"))),
+                         checkboxInput("mvmt", label="Patient ward movements", value=F),
+                         conditionalPanel(condition="input.mvmt & input.datrad=='user'", 
+                                          fileInput("fileMvmt", label=NULL, accept=c("csv"))),
+                         checkboxInput("genDis", label="Genetic distance", value=F), 
+                         conditionalPanel(condition="input.genDis & input.datrad=='user'", 
+                                          fileInput("fileGen", label=NULL, accept=c("csv")))
                      ), 
                      tabBox(title="Preview data",width=NULL, side="left", 
                             tabPanel(title="Core", value="corePrev",
@@ -101,12 +95,12 @@ body <- dashboardBody(
                                                           tableOutput('previewCore')))
                             ),
                             tabPanel(title="Movement", value="mvmtPrev",
-                                     conditionalPanel(condition="input.datrad=='dum' | output.mvmtFileUploaded",
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
                                                       div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
                                                           tableOutput('previewMvmt')))
                             ),
                             tabPanel(title="Genetic distance", value="genPrev", 
-                                     conditionalPanel(condition="input.datrad=='dum' | output.genFileUploaded",
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
                                                       div(style='overflow-x: scroll; height:300px; overflow-y: scroll', 
                                                           tableOutput('previewGen')))
                                      )
@@ -247,9 +241,9 @@ body <- dashboardBody(
                                      plotOutput("epiplotAll")),
                             tabPanel(title="Ward", value="epiWard", 
                                      plotOutput("epiplotWard"))
-                     ) 
-    #                 div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
-    #                     tableOutput("jazzytable1"))
+                     ), 
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
+                         tableOutput("jazzytable1"), tableOutput("jazzytable2"))
               )
             )
     )

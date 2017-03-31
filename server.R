@@ -1,6 +1,6 @@
 shinyServer(function(input, output, session) {
   
-# Dummy data
+  # Dummy data
   
   coreDum<-data.frame(
     ptId=paste0("pt", c(1,2,3,4,5,6,7,8,9,10)), 
@@ -13,6 +13,7 @@ shinyServer(function(input, output, session) {
     var2=c("B", "A", "B", "B", "B", "B", "B", "B", "B", "A"),
     var3=c("B", "A", "B", "B", "A", "A", "A", "A", "B", "A")
   )
+  
 
   mvmtDum<-data.frame(
     ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
@@ -46,40 +47,16 @@ shinyServer(function(input, output, session) {
            0.4,0.3,0.2,0.1,0.05,0.75,0.65,0.55,0.5,0.45,0.35,0.25,0.15,0.05)
     )
   
-  
-  
-# Disable generate plan button if variables not selected
-
-  observe({
-    toggleState("gen",
-    input$ptid!="" & input$wardid!="" & input$sampledat!="" &
-      anyDuplicated(c(
-        input$ptid, input$wardid, 
-        input$sampledat, input$catvars
-      )
-      )==0
-    )
-    
-    if((input$datrad=="dum" |!is.null(genUser())) & input$genDis==TRUE){
-      toggleState("gen",
-                  input$genPt1!="" & input$genPt2!="" & input$genPtDist!=""
-                  )
-    }
-  })
 
   
-  
-# Disable plan tab until plan is generated
-  
+  # Disable tabs
+  ## epi curves and plan until button is pressed
   observe({
-    toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0)
+    toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0 & input$mvmt==TRUE)
     toggleState(selector="#pan li a[data-value=panEpi]", condition=input$gen!=0)
   })
-  
-  
-# Dynamic UI elements 
 
-  ## Aspect ratio slider
+  # Aspect ratio slider
   output$aspSliderUi<-renderUI({
     args<-list(inputId="asp", label="Aspect ratio", ticks=c("Wider", "Wider", "Equal", "Taller", "Taller"), 
                value="2")
@@ -96,9 +73,9 @@ shinyServer(function(input, output, session) {
     html
   })
   
-# Load data
+  # Load data
   
-## Core data
+  ## Core data
   
   coreDatUser<-reactive({
     if(is.null(input$fileCore)){
@@ -129,7 +106,7 @@ shinyServer(function(input, output, session) {
     
   })
   
-## Ward movements data
+  ## Ward movements data
   
   mvmtDatUser<-reactive({
     if(is.null(input$fileMvmt)){
@@ -161,7 +138,7 @@ shinyServer(function(input, output, session) {
   })
   
   
-## Genetic distance data
+  ## Genetic distance data
   
   genUser<-reactive({
     if(is.null(input$fileGen)){
@@ -195,7 +172,7 @@ shinyServer(function(input, output, session) {
   output$previewCore<-renderTable(
     if(!(is.null(input$fileCore) & input$datrad=="user")){
       coreDat()
-    }
+      }
     )
   
   ## Movement data
@@ -205,12 +182,10 @@ shinyServer(function(input, output, session) {
       mvmtDat()
     }
   )
-
   
   ## Genetic distance data
   
   output$previewGen<-renderTable({genDat()})
-  
   
   # set columns with each data item
   ### if dummy data loaded, select appropriate col
@@ -234,7 +209,7 @@ shinyServer(function(input, output, session) {
   
    output$admDateUi<-renderUI({
      if(input$datrad=="dum"){
-       selectizeInput('admDat', label='Sample date', 
+       selectizeInput('admDat', label='Admission date', 
                       choices=names(coreDat()), selected="admDat")
      } else {
        selectizeInput('admDat', label='Sample date', 
@@ -247,8 +222,7 @@ shinyServer(function(input, output, session) {
    
    outputOptions(output, "admDateUi", suspendWhenHidden = FALSE)
    
-
-  output$sampledateUi<-renderUI({
+   output$sampledateUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('sampledat', label='Sample date', 
                      choices=names(coreDat()), selected="samp")
@@ -293,20 +267,21 @@ shinyServer(function(input, output, session) {
   outputOptions(output, "catvarUi", suspendWhenHidden = FALSE)
   
   ## Movement data
-  
-
+ 
   output$wardPtUi<-renderUI({
     if(input$datrad=="dum"| is.null(input$fileMvmt)){
-      selectizeInput('wardPt', label='Ward identifier', 
+      selectizeInput('wardPt', label='Patient identifier', 
                      choices=names(mvmtDat()), selected="ptId")
     } else {
-      selectizeInput('wardid', label='Ward identifier', 
+      selectizeInput('wardPt', label='Patient identifier', 
                      choices=names(mvmtDat()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
+  
+  outputOptions(output, 'wardPtUi', suspendWhenHidden=FALSE)
   
   output$wardidUi<-renderUI({
     if(input$datrad=="dum"| is.null(input$fileMvmt)){
@@ -416,10 +391,7 @@ shinyServer(function(input, output, session) {
   })
   
   outputOptions(output, "genPtDistUi", suspendWhenHidden = FALSE)
-  
 
-  
-  
  # filter variables 
 
   output$filVarsUi<-renderUI({
@@ -435,37 +407,34 @@ shinyServer(function(input, output, session) {
      }
   })
   outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
-
   
   # wards to display in plan
   output$wardFilUi<-renderUI({
-    selectInput('wardFil', label="Display wards",
-                choices=unique(mvmtDat()[,input$wardid]),
-                selected=unique(mvmtDat()[,input$wardid]),
-                multiple=T)
-    
+    if(input$datrad=="dum" | !is.null(input$fileMvmt) & input$mvmt==TRUE){
+      selectInput('wardFil', label="Display wards", 
+                  choices=unique(mvmtDat()[, input$wardid]), 
+                  selected=unique(mvmtDat()[, input$wardid]), 
+                  multiple=T)
+      
+    } else {
+      selectInput('wardFil', label="Display wards", 
+                  choices=unique(coreDat()[, input$wardSamp]), 
+                  selected=unique(coreDat()[, input$wardSamp]),
+                  multiple=T)
+    }
   })
   
+
   outputOptions(output, "wardFilUi", suspendWhenHidden = FALSE)
   
-  # wards to display in epicurves
-  output$wardFilEpiUi<-renderUI({
-    selectInput('wardFilEpi', label="Display wards",
-                choices=unique(coreDat()[,input$wardSamp]),
-                selected=unique(coreDat()[,input$wardSamp]),
-                multiple=T)
-    
-  })
-  
-  
-  
-  
-  ## update genetic distance input if dummy data loaded
+  ## update movement and genetic distance checkbox inputs if dummy/ user data loaded
   observe({
     if(input$datrad=="dum"){
+      updateCheckboxInput(session, "mvmt", value=TRUE)
       updateCheckboxInput(session, "genDis", value=TRUE)
     }
     if(input$datrad=="user"){
+      updateCheckboxInput(session, "mvmt", value=FALSE)
       updateCheckboxInput(session, "genDis", value=FALSE)
     }
   })
@@ -474,73 +443,123 @@ shinyServer(function(input, output, session) {
   # validate inputs - generate error messages 
   
   output$warn<-renderText({
-    if((!is.null(input$fileCore)) | input$datrad=="dum"){
+    if(is.null(input$fileCore) & input$datrad=="user"){
+      "Please select data"
+    } else if((!is.null(input$fileCore)) | input$datrad=="dum"){
       validate(
-        ## variables not selected
-        need(input$ptid!="" & input$wardSamp!="" & input$sampledat!="",
+        ## Core variables not selected
+        need(input$ptid!="" & input$wardSamp!="" & input$admDat!="" &  input$sampledat!="",
              "Please select variables"),
-        ## same variable selected for >1 field
-        if(input$ptid!="" & input$wardSamp!=""  & input$sampledat!=""){
+        ## Core same variable selected for >1 field
+        if(input$ptid!="" & input$wardSamp!=""  & input$admDat!="" & input$sampledat!=""){
           need(
             anyDuplicated(c(
-              input$ptid, input$wardSamp, input$sampledat, input$catvars
+              input$ptid, input$wardSamp, input$admDat, input$sampledat, input$catvars
             )
-            )==0, "Please select each variable only once")}
+            )==0, "Please select each variable only once")
+        }
       )
-      if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-        need(
-          input$genPt1!="" & input$genPt2!="" & input$genPtDist!="", 
-          "Please select genetic distance variables"
+      
+      if((input$datrad=="dum" | !is.null(mvmtDatUser())) & input$mvmt==TRUE){
+        validate(
+          ## Movement variables not selected
+          need(input$wardPt!="" & input$wardid!="" & input$dayin!="" & input$dayout!="", 
+               "Please select patient ward movement variables"),
+          
+          ## Movement variable selected for >1 field 
+          if(input$wardPt!="" & input$wardid!="" & input$dayin!="" & input$dayout!=""){
+            need(
+              anyDuplicated(c(
+                input$wardPt, input$wardid, input$dayin, input$dayout
+              ))==0, "Please select each variable only once")
+          }
         )
-        
       }
       
-    } else {"Please select data"}
+      
+      if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+        validate(
+          ## Genetic distance variables not selected
+          need(input$genPt1!="" & input$genPt2!="" & input$genPtDist!="", 
+               "Please select genetic distance variables"),
+          
+          ## Genetic distance variable selected for >1 field 
+          if(input$genPt1!="" & input$genPt2!="" & input$genPtDist!=""){
+            need(
+              anyDuplicated(c(
+                input$genPt1, input$genPt2, input$genPtDist
+              ))==0, "Please select each variable only once")
+          }
+        )
+      } else { NULL} 
+      
+    } else { NULL} 
+    
+
   })
   
+  
+ 
+  
+  
+  
+  # Disable generate plan button if validations not met
+  ## this is ugly but toggleState can only be based on inputs so needs to react directly to the inputs
+  ## rather than eg to a reactive value, as far as I can tell. Anyway it works!
+  
+  observe({
+    toggleState("gen", condition=
+                  !(is.null(input$fileCore) & input$datrad=="user")
+                )
+    
+  })
+  
+  observe({
+    if((!is.null(input$fileCore)) | input$datrad=="dum"){
+      toggleState("gen", condition=
+                    input$ptid!="" & input$wardSamp!="" & input$admDat!="" &  input$sampledat!="" &
+                    anyDuplicated(c(
+                      input$ptid, input$wardSamp, input$admDat, input$sampledat, input$catvars
+                    )
+                    )==0
+      )
+    }
+  })
+  
+  observe({
+    if((input$datrad=="dum" | !is.null(mvmtDatUser())) & input$mvmt==TRUE){
+      toggleState("gen", condition=
+                    input$wardPt!="" & input$wardid!="" & input$dayin!="" & input$dayout!="" &
+                    anyDuplicated(c(
+                      input$wardPt, input$wardid, input$dayin, input$dayout
+                    ))==0
+      )
+    }
+  })
+  
+  observe({
+    if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+      toggleState("gen", condition = 
+                    input$genPt1!="" & input$genPt2!="" & input$genPtDist!="" &
+                    anyDuplicated(c(
+                      input$genPt1, input$genPt2, input$genPtDist
+                    ))==0
+                    )
+    }
+  })
+
   
 # Observer - 'generate plan' button or 'update' button
   
     observeEvent({
       input$goagain
       input$gen}, {
-        
-        # move focus to plan tab
-        
-##        updateTabsetPanel(session, "pan", selected = "panEpi")
- 
-        # exclude data for wards not selected in the plan
-        if(input$gen==1 & input$goagain==0){
-          datWard<-reactive({
-            mvmtDat()
-          })
-        } else {
-          datWard<-reactive({
-            datWard1<-mvmtDat()
-            datWard1[which(datWard1[,input$wardid]%in%input$wardFil),]
-          })
-        }
-        
-        # exclude data for wards not selected in epi curve
-        if(input$gen==1 & input$goagain==0){
-          datWardCore<-reactive({
-            coreDat()
-          })
-        } else {
-          datWardCore<-reactive({
-            datWardCore1<-coreDat()
-            datWardCore1[which(datWardCore1[,input$wardSamp]%in%input$wardFilEpi),]
-          })
-        }
-        
-        
-
       
       # rename and format the variables in dat for assigned cols 
       
       ## Core data 
         
-      coreDatNam<-datWardCore()
+      coreDatNam<-coreDat()
       colnames(coreDatNam)[which(colnames(coreDatNam)==input$ptid)]<-"ptId"
       colnames(coreDatNam)[which(colnames(coreDatNam)==input$admDat)]<-"admDat"
       colnames(coreDatNam)[which(colnames(coreDatNam)==input$sampledat)]<-"samp"  
@@ -558,17 +577,17 @@ shinyServer(function(input, output, session) {
         
       ## Movement data  
         
-      datNam<-datWard()
-      colnames(datNam)[which(colnames(datNam)==input$wardPt)]<-"ptId"
-      colnames(datNam)[which(colnames(datNam)==input$wardid)]<-"wardId" 
-      colnames(datNam)[which(colnames(datNam)==input$floor)]<-"floor"
-      colnames(datNam)[which(colnames(datNam)==input$dayin)]<-"dayIn"  
-      colnames(datNam)[which(colnames(datNam)==input$dayout)]<-"dayOut"  
+      datNamA<-mvmtDat()
+      colnames(datNamA)[which(colnames(datNamA)==input$wardPt)]<-"ptId"
+      colnames(datNamA)[which(colnames(datNamA)==input$wardid)]<-"wardId" 
+      colnames(datNamA)[which(colnames(datNamA)==input$floor)]<-"floor"
+      colnames(datNamA)[which(colnames(datNamA)==input$dayin)]<-"dayIn"  
+      colnames(datNamA)[which(colnames(datNamA)==input$dayout)]<-"dayOut"  
 
-      datNam$dayIn<-dmy(datNam$dayIn)
-      datNam$dayOut<-dmy(datNam$dayOut)
+      datNamA$dayIn<-dmy(datNamA$dayIn)
+      datNamA$dayOut<-dmy(datNamA$dayOut)
     
-      datNam$wardId<-as.factor(datNam$wardId)
+      datNamA$wardId<-as.factor(datNamA$wardId)
       
       ## Genetic distance data 
       
@@ -576,10 +595,10 @@ shinyServer(function(input, output, session) {
       colnames(genDatNam)[which(colnames(genDatNam)==input$genPt1)]<-"ptId1"
       colnames(genDatNam)[which(colnames(genDatNam)==input$genPt2)]<-"ptId2"
       colnames(genDatNam)[which(colnames(genDatNam)==input$genPtDist)]<-"dist"
-
+      
       # Join core data to movement data
       datNam<-
-        left_join(datNam, coreDatNam[c("ptId", "samp", input$catvars)], by="ptId")
+        left_join(datNamA, coreDatNam[c("ptId", "samp", input$catvars)], by="ptId")
         
       # Format pt id as factor
       
@@ -587,7 +606,15 @@ shinyServer(function(input, output, session) {
       datNam$ptId<-as.factor(datNam$ptId)
             
 
-    # set up ui in 'plan' tab
+      # Exclude wards not selected
+      
+      datNam<-datNam[which(datNam[,input$wardid]%in%input$wardFil),]
+      coreDatNam<-coreDatNam[which(coreDatNam[,input$wardSamp]%in%input$wardFil),] 
+      validate(need(nrow(datNam)>=1, "No wards selected"))
+      
+      if(input$mvmt==T){
+      
+      # set up ui in 'plan' tab
       ## Day slider
       
       output$dayUi<-renderUI({
@@ -736,25 +763,25 @@ shinyServer(function(input, output, session) {
         plan<-
           plan %>%
           group_by(nFloor) %>%
-          dplyr::mutate(totWard=length(id)) %>%
-          dplyr::mutate(nWard=seq(1:length(id))) %>%
-          dplyr::mutate(xMin=(nWard*wardWid)-wardWid+0.2) %>%
-          dplyr::mutate(xMax=nWard*wardWid)
+          mutate(totWard=length(id)) %>%
+          mutate(nWard=seq(1:length(id))) %>%
+          mutate(xMin=(nWard*wardWid)-wardWid+0.2) %>%
+          mutate(xMax=nWard*wardWid)
         
         plan<-
           plan %>%
-          dplyr::mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
-          dplyr::mutate(yMax=nFloor*wardHt) %>%
-          dplyr::mutate(x1=xMin) %>%
-          dplyr::mutate(x2=xMin) %>%
-          dplyr::mutate(x3=xMax) %>%
-          dplyr::mutate(x4=xMax) %>%
-          dplyr::mutate(y1=yMin) %>%
-          dplyr::mutate(y2=yMax) %>%
-          dplyr::mutate(y3=yMax) %>%
-          dplyr::mutate(y4=yMin) %>%
-          dplyr::mutate(xMid=(xMin+xMax)/2) %>%
-          dplyr::mutate(yMid=(yMin+yMax)/2)
+          mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
+          mutate(yMax=nFloor*wardHt) %>%
+          mutate(x1=xMin) %>%
+          mutate(x2=xMin) %>%
+          mutate(x3=xMax) %>%
+          mutate(x4=xMax) %>%
+          mutate(y1=yMin) %>%
+          mutate(y2=yMax) %>%
+          mutate(y3=yMax) %>%
+          mutate(y4=yMin) %>%
+          mutate(xMid=(xMin+xMax)/2) %>%
+          mutate(yMid=(yMin+yMax)/2)
         
         ## Convert coordinates to polygons for plotting
         pol <-
@@ -777,9 +804,9 @@ shinyServer(function(input, output, session) {
         
         floorLab<-
           floorLab %>%
-          dplyr::mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
-          dplyr::mutate(yMax=nFloor*wardHt) %>%
-          dplyr::mutate(y=yMin+((yMax-yMin)/2))
+          mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
+          mutate(yMax=nFloor*wardHt) %>%
+          mutate(y=yMin+((yMax-yMin)/2))
         
         ## Polygon to left of floor plan to place floor labels into
         labelPol<-data.frame(
@@ -814,20 +841,20 @@ shinyServer(function(input, output, session) {
           datCoord %>%
           arrange(id) %>%
           group_by(id) %>%
-          dplyr::mutate(nBed=1:length(id)) 
+          mutate(nBed=1:length(id)) 
         
         
         datCoord<-
           datCoord %>%
-          dplyr::mutate(rowN=nRows+1-(ceiling(nBed/nCols))) %>%
-          dplyr::mutate(colN=((nBed/nCols)-trunc(nBed/nCols))*nCols)
+          mutate(rowN=nRows+1-(ceiling(nBed/nCols))) %>%
+          mutate(colN=((nBed/nCols)-trunc(nBed/nCols))*nCols)
         
         datCoord$colN[datCoord$colN==0]<-nCols
         
         datCoord<-
           datCoord %>%
-          dplyr::mutate(x=xMin+(((xMax-xMin)/nCols)*colN)-(((xMax-xMin)/nCols)/2)) %>%
-          dplyr::mutate(y=yMin+(((yMax-yMin)/nRows)*rowN)-(((yMax-yMin)/nRows)/2))              
+          mutate(x=xMin+(((xMax-xMin)/nCols)*colN)-(((xMax-xMin)/nCols)/2)) %>%
+          mutate(y=yMin+(((yMax-yMin)/nRows)*rowN)-(((yMax-yMin)/nRows)/2))              
         
         
         ## Image to be used as background for plan
@@ -896,7 +923,7 @@ shinyServer(function(input, output, session) {
       ## also change the coordinates by 1000
       leafCoord<-
         datCoord %>%
-        dplyr::select(id, nBed, rowN, colN, x, y, totWard, nWard) %>%
+        select(id, nBed, rowN, colN, x, y, totWard, nWard) %>%
         mutate(x=x*100, y=y*100)
 
         leafCoord<-
@@ -958,8 +985,7 @@ shinyServer(function(input, output, session) {
         ## join to coordinates
         dat1$wardId<-as.character(dat1$wardId)
         dat1<-left_join(dat1, leafCoord, by=c("wardId", "wardN"))  
-        
-        
+
         # Generate variables
         
         ## Genetic distance
@@ -1072,10 +1098,10 @@ shinyServer(function(input, output, session) {
         })
         
         
+
         # Render plan
         
         output$map<-renderLeaflet({
-          
           leaflet(options= leafletOptions(
             crs=leafletCRS(crsClass='L.CRS.Simple'),minZoom= -5, maxZoom = 5)) %>%
             fitBounds(lng1=bounds[2], lat1=bounds[1], lng2=bounds[3], lat2=bounds[4]) %>%
@@ -1180,6 +1206,8 @@ shinyServer(function(input, output, session) {
           
         })
         
+      }
+        
         
         # Epidemic curves
         
@@ -1223,16 +1251,22 @@ shinyServer(function(input, output, session) {
            while(max(brks1)<max(coreDatNam$samp)){
              brks1<-c(brks1, max(brks1)+input$binwid)
            }
+           if(length(brks1)==1){
+             brks1<-c(brks1, brks1+input$binwid)
+           }
            brks1
          } else {
            validate(need(!is.na(input$binwid), "Please select bar width"))
            brks1<-seq(input$epidates[1], input$epidates[2], input$binwid)
            while(max(brks1)<input$epidates[2]){
              brks1<-c(brks1, max(brks1)+input$binwid)
+             if(length(brks1)==1){
+               brks1<-c(brks1, brks1+input$binwid)
+             }
            }
            brks1
          }
-
+         
        })
         
 
@@ -1242,7 +1276,13 @@ shinyServer(function(input, output, session) {
            datEpi1 %>%
            mutate(acqEpi=ifelse(samp-admDat>=input$hospAcqLenEpi, "Hospital", "Community")) 
          datEpi1$acqEpi<-factor(datEpi1$acqEpi, levels=c("Hospital", "Community")) 
-         datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
+      
+           datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
+           
+         
+         
+        
+         
 
          if(length(input$epidates)!=2 & input$colByVarEpi==FALSE){
          
@@ -1363,9 +1403,25 @@ shinyServer(function(input, output, session) {
           output$epiplotWard<-renderPlot({
             validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
             
-            if(input$datrad=="dum" | (input$mvmt==TRUE &  !is.null(input$fileMvmt))){
-              
+            if((input$datrad=="dum" | !is.null(input$fileMvmt)) & input$mvmt==TRUE){
               wardLay<-unique(datInf()[,c("wardId", "nFloor", "nWard")])
+            } else {
+              wardLay<-data.frame(
+                wardId=unique(datEpi()$wardSamp),
+                nFloor=rep(1:round(length(unique(datEpi()$wardSamp))/2),each=2)[1:length(unique(datEpi()$wardSamp))]
+              )
+              wardLay<-
+                wardLay %>%
+                group_by(nFloor) %>%
+                mutate(nWard=1:length(wardId))
+              
+              wardLay<-as.data.frame(wardLay)
+              wardLay$wardId<-as.character(wardLay$wardId)
+            
+                  
+            }
+
+              
               wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
               wardLay<-
                 wardLay %>% arrange(nFloor, nWard)
@@ -1374,7 +1430,7 @@ shinyServer(function(input, output, session) {
                 lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
               })
 
-            }
+        
 
             epiymax<-max(datEpiFil()%>%
                            group_by(grpTot, wardSamp) %>%
@@ -1446,6 +1502,8 @@ shinyServer(function(input, output, session) {
             }
 
         })
+          
+          
     })
     
     # move focus to epicurves tab if gen button pressed
@@ -1455,7 +1513,9 @@ shinyServer(function(input, output, session) {
         updateTabsetPanel(session, "pan", selected = "panEpi")
       })
     
+
     
+
     })
     
         
