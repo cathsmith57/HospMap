@@ -112,7 +112,7 @@ body <- dashboardBody(
     tabItem(tabName = "panPl", 
             fluidRow(
               column(width=4,
-                     tabBox(width=NULL, 
+                     tabBox(width=NULL,
                             tabPanel(title="Display", value="disTab",
                                      checkboxInput("wardLabShow", label="Show ward labels", value=F),
                                      uiOutput("dayUi"),
@@ -208,8 +208,8 @@ body <- dashboardBody(
                                                  ), selected="%d %b"
                                                  ),
                                      checkboxInput("vertLab", label="Vertical x axis labels", value=F),
-                                     sliderInput("plWid", label="Plot width", min=50, max=1000, value=400),
-                                     sliderInput("plHt", label="Plot height", min=50, max=1000, value=400), 
+                                     sliderInput("plWid", label="Plot width (px)", min=50, max=1000, value=400),
+                                     sliderInput("plHt", label="Plot height (px)", min=50, max=1000, value=400), 
                                      checkboxInput("colByVarEpi", label="Colour by patient characteristics", value=F),
                                      conditionalPanel(condition="input.colByVarEpi",
                                                       selectizeInput('plEpi', label='Characteristic', 

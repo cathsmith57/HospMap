@@ -688,18 +688,30 @@ shinyServer(function(input, output, session) {
     
       ## calc largest number of cases on a ward on any day
       
+#      maxCases<-
+#        max(
+#          unlist(
+#            lapply(unique(datNam$wardId), function(j){
+#              max(plyr::count(
+#                unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
+#                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1),1)
+#                }))
+#              )$freq)
+#            })
+#          )
+#        )
+      
+      ## instead, giving each person a unique position on the ward
+      ## therefore, maxCases is the max no patients in ward ever
+      
       maxCases<-
         max(
-          unlist(
-            lapply(unique(datNam$wardId), function(j){
-              max(plyr::count(
-                unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
-                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1),1)
-                }))
-              )$freq)
-            })
+          datNam %>%
+            group_by(wardId) %>%
+            count() %>%
+            select(n)
           )
-        )
+      
       
      
 
@@ -796,24 +808,6 @@ shinyServer(function(input, output, session) {
         pol<-arrange(pol, id)
       
         
-        ## Labels for floors 
-        floorLab<-data.frame(
-          nFloor=unique(datNam$nFloor),
-          lab=paste0("Floor ", unique(datNam$floor)),
-          x=-1)
-        
-        floorLab<-
-          floorLab %>%
-          mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
-          mutate(yMax=nFloor*wardHt) %>%
-          mutate(y=yMin+((yMax-yMin)/2))
-        
-        ## Polygon to left of floor plan to place floor labels into
-        labelPol<-data.frame(
-          x=c(min(plan$xMin)-0.2-2, min(plan$xMin)-0.2-2, 0, 0),
-          y=c(0, max(plan$yMax)+0.2, max(plan$yMax)+0.2, 0)
-        )
-        
         ## Coorindates that points can go into
         
         ## how many rows and cols per ward
@@ -873,11 +867,9 @@ shinyServer(function(input, output, session) {
           print(
             ggplot(pol, aes(x=x, y=y)) + 
               geom_polygon(aes(group=id), fill="white", col="black") +
-              #      geom_polygon(dat=labelPol, aes(x=x,y=y), fill="#F0F0F0")+
               scale_y_continuous(expand=c(0,0), limits=c(min(plan$yMin)-0.2, max(plan$yMax)+0.2))+
               scale_x_continuous(expand=c(0,0), limits=c(min(plan$xMin)-0.2, max(plan$xMax)+0.2))+
-              #      scale_x_continuous(expand=c(0,0), limits=c(min(plan$xMin)-0.2-2, max(plan$xMax)+0.2))+
-              #     geom_label(data=floorLab, aes(x=x, y=y, label=lab))+
+
               theme(
                 legend.position="none",
                 axis.text=element_blank(),
@@ -1095,8 +1087,34 @@ shinyServer(function(input, output, session) {
           as.data.frame(datFil1)
           
         })
+        
+        # update genetic distance index selector to include only patietns who are there
+     observe({
+       if(input$pan=="panPl"){
+         updateSelectInput(session, "genDIndex",
+                           choices=datFil()$ptId,
+                           selected=datFil()$ptId[1])
+       }
+  
+     })
+     
+     # also do something similar for the patient id filter?
 
-       
+
+ #    observe({
+#       if(input$pan=="panPl"){
+#         updateSelectInput(session, "ptId",
+#                           choices=datDay()$ptId,
+#                           selected=datDay()$ptId)
+#       }
+#       
+#       
+#       outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
+#       
+#     })
+     
+     
+
 
         # Render plan
         
