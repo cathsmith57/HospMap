@@ -14,7 +14,7 @@ library(sp)
 
 
 
-header <- dashboardHeader(title="Hospital infection map")
+header <- dashboardHeader(title="HospMapper")
 #header <- dashboardHeader(title="jazzy dashboard")
 
 sidebar <- dashboardSidebar(
