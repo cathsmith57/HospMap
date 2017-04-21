@@ -1089,16 +1089,16 @@ shinyServer(function(input, output, session) {
         })
         
         # update genetic distance index selector to include only patietns who are there
-     observe({
-       if(input$pan=="panPl"){
-         updateSelectInput(session, "genDIndex",
-                           choices=datFil()$ptId,
-                           selected=datFil()$ptId[1])
-       }
-  
-     })
-     
-     # also do something similar for the patient id filter?
+ #    observe({
+#       if(input$pan=="panPl"){
+#         updateSelectInput(session, "genDIndex",
+#                           choices=datFil()$ptId,
+#                           selected=datFil()$ptId[1])
+#       }
+#  
+#     })
+#     
+     # also do something similar for the patient id
 
 
  #    observe({
