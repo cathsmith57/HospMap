@@ -618,9 +618,9 @@ shinyServer(function(input, output, session) {
       ## Day slider
       
       output$dayUi<-renderUI({
-        sliderInput('day', label = 'Day', 
+        dateInput('day', label = 'Day', 
                     min=min(datNam$dayIn), max=max(datNam$dayIn),
-                    value=min(datNam$dayIn), step=1) 
+                    value=min(datNam$dayIn)) 
       })
       
       ## patient ids
@@ -1018,12 +1018,11 @@ shinyServer(function(input, output, session) {
                                 input$day<datInf1$symStart)]<-"IncubationPeriod"
           datInf1$infec[which(input$day>=datInf1$symStart & 
                                 input$day<=datInf1$infecEnd)]<-"InfectiousPeriod"
-          datInf1$infec[which(input$day==datInf1$samp)]<-"SampleDate"
           datInf1$infec[which(input$day>datInf1$infecEnd)]<-"PostInfectious"
           
           datInf1$infec<-factor(datInf1$infec, 
                                 levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
-                                         "SampleDate", "InfectiousPeriod", "PostInfectious"))
+                                         "InfectiousPeriod", "PostInfectious"))
           
           datInf1<-
             datInf1 %>%
@@ -1046,7 +1045,7 @@ shinyServer(function(input, output, session) {
             datCol1$col<-"#3c8dbc"
           }  else if(input$pl=="infec"){
             cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
-                    brewer.pal(9, "Paired")[6], brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
+                    brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
             )
             factpal<-colorFactor(cols, datCol1$infec)
             datCol1$col<-factpal(datCol1$infec)
@@ -1096,8 +1095,8 @@ shinyServer(function(input, output, session) {
           as.data.frame(datFil1)
           
         })
-        
-        
+
+       
 
         # Render plan
         
@@ -1117,7 +1116,7 @@ shinyServer(function(input, output, session) {
                                          image.bringToBack();
                                          myMap.setMaxBounds(bounds);
                                          }"))
-            
+      
         })
         
         ## add points to plan
@@ -1129,7 +1128,8 @@ shinyServer(function(input, output, session) {
               clearMarkers() %>%
               clearControls() %>%
               addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=8, color="black",
-                               weight=1, fillOpacity=1, layerId=~ptId) 
+                               weight=1, fillOpacity=1, layerId=~ptId)
+              
             
             if(input$wardLabShow==TRUE){
               map %>% addLabelOnlyMarkers(data=wardLab, lng=~xMid, lat=~yMid, label=~htmlEscape(wardId),
@@ -1144,7 +1144,7 @@ shinyServer(function(input, output, session) {
             } else if(input$pl=="infec"){
               map %>% addLegend(position="bottomright", 
                                 colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
-                                         brewer.pal(9, "Paired")[6], brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
+                                         brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
                                 ),
                                 labels=levels(datCol()$infec), opacity=1)
               } else if(input$pl=="gendis"){
@@ -1188,8 +1188,7 @@ shinyServer(function(input, output, session) {
           return(content) 
           
         }
-        
-        
+   
         observe({ 
           map<-leafletProxy("map")
           map %>% clearPopups()
@@ -1205,10 +1204,60 @@ shinyServer(function(input, output, session) {
           }
           
         })
+  
+      
+
+
+        ## create infection link lines
         
+        lnkLine<-reactive({
+          lnkLin1<-as.data.frame(datFil())
+          lnkLin1$nlink<-NA
+          
+          for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="ExposurePeriod"]))){
+            ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+            lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod"),])
+          }
+          
+          if(sum(lnkLin1$nlink, na.rm=T)>0){
+            lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+            lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+            
+            lnk$x1<-NA
+            lnk$y1<-NA
+            
+            for(i in unique(lnk$ptId)){
+              ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+              lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+              lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+            }
+            lnk
+          } else {NULL}
+        })
+        
+        observe({
+          if(input$lnk==TRUE){
+            map<-leafletProxy("map")
+            if(!is.null(lnkLine())){
+              map<-map%>%clearGroup("lnks")
+              for(i in 1:nrow(lnkLine())){
+                map %>%
+                  addPolylines(lng=as.numeric(lnkLine()[i,c("x","x1")]), 
+                               lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks")
+              }
+            } else {map %>%clearGroup("lnks")}
+            
+          } else{
+            map<-leafletProxy("map")
+            map %>%
+              clearGroup("lnks")
+          }
+          
+            
+          })
       }
-        
-        
+
+           
         # Epidemic curves
         
         ## Inputs
@@ -1279,10 +1328,7 @@ shinyServer(function(input, output, session) {
       
            datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
            
-         
-         
-        
-         
+
 
          if(length(input$epidates)!=2 & input$colByVarEpi==FALSE){
          
@@ -1352,6 +1398,17 @@ shinyServer(function(input, output, session) {
                            select(tot))
             
             
+  #          if(epiymax<length(brks())-1){
+  #            epiymax<-length(brks())-1
+  #          }
+  #          
+ #           brks1<-brks()
+  #          while(length(brks1-1<epiymax)){
+  #            brks1<-c(brks1, max(brks1)+input$binwid)
+#            }
+            
+
+            
             if(input$colByVarEpi==FALSE){
               ggplot(datEpiFil())+
                 geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
@@ -1398,7 +1455,7 @@ shinyServer(function(input, output, session) {
                 labs(x="Sample date", y="Count")
             }
 
-          })
+          }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
 
           output$epiplotWard<-renderPlot({
             validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
@@ -1417,11 +1474,9 @@ shinyServer(function(input, output, session) {
               
               wardLay<-as.data.frame(wardLay)
               wardLay$wardId<-as.character(wardLay$wardId)
-            
-                  
+                      
             }
 
-              
               wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
               wardLay<-
                 wardLay %>% arrange(nFloor, nWard)
@@ -1429,8 +1484,6 @@ shinyServer(function(input, output, session) {
               lapply(1:nrow(wardLay), function(i){
                 lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
               })
-
-        
 
             epiymax<-max(datEpiFil()%>%
                            group_by(grpTot, wardSamp) %>%
@@ -1501,8 +1554,9 @@ shinyServer(function(input, output, session) {
             grid.arrange(gs, legend, ncol=1, heights=c(10,1))
             }
 
-        })
+        }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
           
+         
           
     })
     

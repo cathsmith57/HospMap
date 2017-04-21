@@ -10,10 +10,11 @@ library(shinyjs)
 library(gridExtra)
 library(lubridate)
 library(gtable)
+library(sp)
 
 
 
-header <- dashboardHeader()
+header <- dashboardHeader(title="Hospital infection map")
 #header <- dashboardHeader(title="jazzy dashboard")
 
 sidebar <- dashboardSidebar(
@@ -22,7 +23,6 @@ sidebar <- dashboardSidebar(
     menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
     menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
     conditionalPanel(condition="input.pan=='panPl'",
-#                     uiOutput("wardFilUi"),
                      uiOutput("aspSliderUi")
                      ), 
     conditionalPanel(condition="input.pan=='panPl' | input.pan=='panEpi'",
@@ -126,6 +126,7 @@ body <- dashboardBody(
                                                                      )
                                                       ),
                                                       conditionalPanel(condition="input.pl=='infec'",
+                                                                       checkboxInput("lnk", "Show links", value=F),   
                                                                        sliderInput('incLen', label='Incubation period (days)', 
                                                                                    min=1, max=5, value=c(1,4), step=1),
                                                                        sliderInput('sampDel', label='Sampling delay (days)', 
@@ -155,9 +156,9 @@ body <- dashboardBody(
                                                  selected=c("Hospital", "Community"), multiple=T),
                                      selectInput("infec", label="Infection period", 
                                                  choices=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
-                                                           "SampleDate", "InfectiousPeriod", "PostInfectious"),
+                                                           "InfectiousPeriod", "PostInfectious"),
                                                  selected=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
-                                                            "SampleDate", "InfectiousPeriod", "PostInfectious"),
+                                                            "InfectiousPeriod", "PostInfectious"),
                                                  multiple=T),
                                      uiOutput("filVarsUi"), 
                                      conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
@@ -174,8 +175,8 @@ body <- dashboardBody(
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
                          tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                          leafletOutput("map", width="100%", height=500)
-                         
-                         )
+                         ),
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
               )
             )
     ),
@@ -207,6 +208,8 @@ body <- dashboardBody(
                                                  ), selected="%d %b"
                                                  ),
                                      checkboxInput("vertLab", label="Vertical x axis labels", value=F),
+                                     sliderInput("plWid", label="Plot width", min=50, max=1000, value=400),
+                                     sliderInput("plHt", label="Plot height", min=50, max=1000, value=400), 
                                      checkboxInput("colByVarEpi", label="Colour by patient characteristics", value=F),
                                      conditionalPanel(condition="input.colByVarEpi",
                                                       selectizeInput('plEpi', label='Characteristic', 
@@ -238,12 +241,12 @@ body <- dashboardBody(
               column(width=8,
                      tabBox(width=NULL, 
                             tabPanel(title="All", value="epiAll",
-                                     plotOutput("epiplotAll")),
+                                     plotOutput("epiplotAll", height="auto")),
                             tabPanel(title="Ward", value="epiWard", 
-                                     plotOutput("epiplotWard"))
-                     ), 
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
-                         tableOutput("jazzytable1"), tableOutput("jazzytable2"))
+                                     plotOutput("epiplotWard", height="auto"))
+                     )
+  #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
+   #                      tableOutput("jazzytable1"), tableOutput("jazzytable2"))
               )
             )
     )
