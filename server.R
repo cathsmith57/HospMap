@@ -1253,6 +1253,35 @@ shinyServer(function(input, output, session) {
           } else {NULL}
         })
         
+        
+        ## create genetic link lines
+
+        lnkGenLine<-reactive({
+          lnkLin1<-as.data.frame(datFil())
+          lnkLin1$nlink<-NA
+          
+          for(i in (unique(lnkLin1$ptId[lnkLin1$gendis=="Y"]))){
+        #    ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+            lnkLin1$nlink[lnkLin1$ptId==i]<-1
+          }
+          
+          if(sum(lnkLin1$nlink, na.rm=T)>0){
+            lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+            lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+            
+            lnk$x1<-NA
+            lnk$y1<-NA
+            
+            for(i in unique(lnk$ptId)){
+            #  ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+              lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$gendis=="index")]
+              lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$gendis=="index")]
+            }
+            lnk
+          } else {NULL}
+        })
+        
+        
         observe({
           if(input$lnk==TRUE){
             map<-leafletProxy("map")
@@ -1261,18 +1290,43 @@ shinyServer(function(input, output, session) {
               for(i in 1:nrow(lnkLine())){
                 map %>%
                   addPolylines(lng=as.numeric(lnkLine()[i,c("x","x1")]), 
-                               lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks")
+                               lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks",
+                               color="red", opacity=1)
               }
             } else {map %>%clearGroup("lnks")}
+        
             
           } else{
             map<-leafletProxy("map")
             map %>%
               clearGroup("lnks")
           }
+          if(input$lnkGen==TRUE){
+            map<-leafletProxy("map")
+            if(!is.null(lnkGenLine())){
+              map<-map%>%clearGroup("lnksGen")
+              for(i in 1:nrow(lnkGenLine())){
+                map %>%
+                  addPolylines(lng=as.numeric(lnkGenLine()[i,c("x","x1")]), 
+                               lat=as.numeric(lnkGenLine()[i,c("y","y1")]), group="lnksGen",
+                               color="blue", opacity=1)
+              }
+            } else {map %>%clearGroup("lnksGen")}
+            
+            
+          } else{
+            map<-leafletProxy("map")
+            map %>%
+              clearGroup("lnksGen")
+          }
+          
           
             
           })
+        output$jazzytable<-renderTable({
+          datCol()
+        })
+        
       }
 
            
