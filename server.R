@@ -47,8 +47,9 @@ shinyServer(function(input, output, session) {
            0.4,0.3,0.2,0.1,0.05,0.75,0.65,0.55,0.5,0.45,0.35,0.25,0.15,0.05)
     )
   
-
   
+ 
+
   # Disable tabs
   ## epi curves and plan until button is pressed
   observe({
@@ -498,10 +499,7 @@ shinyServer(function(input, output, session) {
 
   })
   
-  
- 
-  
-  
+
   
   # Disable generate plan button if validations not met
   ## this is ugly but toggleState can only be based on inputs so needs to react directly to the inputs
@@ -548,7 +546,79 @@ shinyServer(function(input, output, session) {
     }
   })
 
+  # Infection period diagram
+
   
+ 
+  infecTL<-reactive({
+    data.frame(
+      day=c(0, 0-input$sampDel, 0-input$sampDel-input$incMax, 
+            0-input$sampDel-input$incMin, 0-input$sampDel+input$infecLen), 
+      event=c("samp", "symStart", "expStart", "expEnd", "infecEnd"),
+      eventLab=c("Sample \ndate", "Symptoms \nstart", "Max incubation \nperiod", 
+                 "Min incubation \nperiod", "Infectious \nperiod end")
+    )
+  })
+
+  infecPer<-reactive({
+    data.frame(
+    x=c(infecTL()$day[infecTL()$event=="expStart"],
+        infecTL()$day[infecTL()$event=="expStart"],
+        infecTL()$day[infecTL()$event=="expEnd"],
+        infecTL()$day[infecTL()$event=="symStart"],
+        infecTL()$day[infecTL()$event=="symStart"]),
+    xend=c(infecTL()$day[infecTL()$event=="expEnd"],
+           infecTL()$day[infecTL()$event=="expEnd"],
+           infecTL()$day[infecTL()$event=="symStart"],
+           infecTL()$day[infecTL()$event=="samp"],
+           infecTL()$day[infecTL()$event=="infecEnd"]),
+    y=c(0.9,0.8,0.8,0.7,0.6),
+    yend=c(0.9,0.8,0.8,0.7,0.6), 
+    per=c("A","B", "B", "C", "D"), 
+    inc=c("solid", "dotted", "solid", "solid", "solid")
+  )
+  })
+  
+
+
+  infecLabs<-reactive({
+    data.frame(
+      lab=c("Exposure Period", "Incubation period", 
+            "Sample delay", "Infectious period"), 
+      x=c(sum(infecTL()$day[infecTL()$event%in%c("expStart", "expEnd")])/2,
+     #     sum(infecTL()$day[infecTL()$event%in%c("expStart", "symStart")])/2,
+          sum(infecTL()$day[infecTL()$event%in%c("expEnd", "symStart")])/2,
+          sum(infecTL()$day[infecTL()$event%in%c("symStart", "samp")])/2,
+          sum(infecTL()$day[infecTL()$event%in%c("symStart", "infecEnd")])/2), 
+      y=c(0.9,0.8,0.7,0.6)
+    )
+  })
+  
+  
+  
+  output$infecPlot<-renderPlot({
+    
+    ggplot()+
+      geom_segment(data=infecTL(), aes(x=min(infecTL()$day), xend=max(infecTL()$day), y=1, yend=1))+
+      geom_label_repel(data=infecTL(), aes(x=day, y=1, label=eventLab), nudge_y = 0.1)+
+      geom_segment(data=infecPer(), aes(x=x, y=y, xend=xend, yend=yend, col=per, linetype=inc), size=2)+
+      scale_color_manual(values=c("#FF7F00", "#FFFFBF", "black", "#33A02C"), 
+                         breaks=levels(infecPer()$per),
+                         name="", guide=FALSE)+
+      scale_linetype_identity(guide=F)+
+      geom_text(data=infecLabs(), aes(x=x, y=y, label=lab), nudge_y=0.05)+
+      scale_y_continuous(limits=c(0.5,1.2), expand=c(0,0))+
+      scale_x_continuous(limits=c(infecTL()$day[infecTL()$event=="expStart"]-0.7, 
+           infecTL()$day[infecTL()$event=="infecEnd"]+0.5), expand=c(0,0))+
+      theme_void()+
+      theme(
+        axis.ticks.length = unit(c(0,0),"inches"),
+        panel.background = element_rect(fill = '#F0F0F0', colour = "white", size=1))
+  #      panel.border = element_rect(fill=NA, colour = "white", size=1, inherit.blank = F))
+      
+  })
+  
+
 # Observer - 'generate plan' button or 'update' button
   
     observeEvent({
@@ -639,7 +709,7 @@ shinyServer(function(input, output, session) {
         "Patient ID" = "ptId",
         "Infection period" = "infec", 
         "Place acquired" = "acq",
-        input$catvars))
+        input$catvars), selected="ptId")
       
       
       ## Filter variables
@@ -999,8 +1069,8 @@ shinyServer(function(input, output, session) {
         datInf<-reactive({
           datInf1<-as.data.frame(datGen())
           datInf1$symStart<-datInf1$samp-input$sampDel
-          datInf1$expStart<-datInf1$symStart-input$incLen[2]
-          datInf1$expEnd<-datInf1$symStart-input$incLen[1]
+          datInf1$expStart<-datInf1$symStart-input$incMax
+          datInf1$expEnd<-datInf1$symStart-input$incMin
           datInf1$infecEnd<-datInf1$symStart+input$infecLen
           datInf1$infec<-NA
           datInf1$infec[which(input$day<datInf1$expStart)]<-"PreExposure"
@@ -1291,7 +1361,7 @@ shinyServer(function(input, output, session) {
                 map %>%
                   addPolylines(lng=as.numeric(lnkLine()[i,c("x","x1")]), 
                                lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks",
-                               color="red", opacity=1)
+                               color="red", opacity=0.5)
               }
             } else {map %>%clearGroup("lnks")}
         
@@ -1309,7 +1379,7 @@ shinyServer(function(input, output, session) {
                 map %>%
                   addPolylines(lng=as.numeric(lnkGenLine()[i,c("x","x1")]), 
                                lat=as.numeric(lnkGenLine()[i,c("y","y1")]), group="lnksGen",
-                               color="blue", opacity=1)
+                               color="blue", opacity=0.5)
               }
             } else {map %>%clearGroup("lnksGen")}
             
@@ -1323,9 +1393,9 @@ shinyServer(function(input, output, session) {
           
             
           })
-        output$jazzytable<-renderTable({
-          datCol()
-        })
+#        output$jazzytable<-renderTable({
+#          datCol()
+#        })
         
       }
 

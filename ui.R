@@ -11,11 +11,11 @@ library(gridExtra)
 library(lubridate)
 library(gtable)
 library(sp)
-
+library(ggrepel)
 
 
 header <- dashboardHeader(title="HospMapper")
-#header <- dashboardHeader(title="jazzy dashboard")
+
 
 sidebar <- dashboardSidebar(
   sidebarMenu(id="pan",
@@ -116,23 +116,25 @@ body <- dashboardBody(
                             tabPanel(title="Display", value="disTab",
                                      checkboxInput("wardLabShow", label="Show ward labels", value=F),
                                      uiOutput("dayUi"),
-                                     checkboxInput("colByVar", label="Colour by patient characteristics", value=F),
+                                     checkboxInput("colByVar", label="Colour by patient characteristics", value=T),
                                      conditionalPanel(condition="input.colByVar",
                                                       selectizeInput('pl', label='Characteristic', 
                                                                      choices=c("ptId","infec","acq"),
                                                                      options=list(
                                                                        placeholder="Select variable",
-                                                                       onInitialize = I('function(){this.setValue("infec");}')
+                                                                       onInitialize = I('function(){this.setValue("ptId");}')
                                                                      )
                                                       ),
                                                       conditionalPanel(condition="input.pl=='infec'",
-                                                                       checkboxInput("lnk", "Show links", value=F),   
-                                                                       sliderInput('incLen', label='Incubation period (days)', 
-                                                                                   min=1, max=5, value=c(1,4), step=1),
-                                                                       sliderInput('sampDel', label='Sampling delay (days)', 
-                                                                                   min=1, max=5, value=1, step=1),
-                                                                       sliderInput('infecLen', label='Infectious period (days)',
-                                                                                   min=1, max=5, value=1, step=1)
+                                                                       checkboxInput("lnk", "Show links", value=F),
+                                                                       numericInput('incMin', label='Minimum incubation period (days)', 
+                                                                                   min=0, value=c(1)),
+                                                                       numericInput('incMax', label='Maximum incubation period (days)', 
+                                                                                    min=0, value=4),
+                                                                       numericInput('sampDel', label='Sampling delay (days)', 
+                                                                                   min=0, value=1),
+                                                                       numericInput('infecLen', label='Infectious period (days)',
+                                                                                   min=0, value=4)
                                                       ), 
                                                       conditionalPanel(condition="input.pl=='acq'",
                                                                        tags$div(class="header", checked=NA,
@@ -176,8 +178,10 @@ body <- dashboardBody(
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
                          tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                          leafletOutput("map", width="100%", height=500)
-                         ),
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
+                         ), 
+                     conditionalPanel(condition="input.pl=='infec'",
+                                      plotOutput("infecPlot", height=200))
+#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
               )
             )
     ),
