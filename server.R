@@ -693,7 +693,36 @@ shinyServer(function(input, output, session) {
                     value=min(datNam$dayIn)) 
       })
       
+      ## plan options
+
+      if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+        output$planOptsUi<-renderUI({
+          checkboxGroupInput("planOpts", label="Display", 
+                             choices=c(
+                               "Ward labels" = "wardLabShow", 
+                               "Epidemiological links" = "lnk", 
+                               "Genetic links" = "lnkGen", 
+                               "Colour by patient characteristics"= "colByVar"), 
+                             selected=c("colByVar")
+          )
+        })
+      } else {
+        output$planOptsUi<-renderUI({
+          checkboxGroupInput("planOpts", label="", 
+                             choices=c(
+                               "Ward labels" = "wardLabShow", 
+                               "Epidemiological links" = "lnk", 
+                               "Colour by patient characteristics"= "colByVar"), 
+                             selected=c("colByVar")
+          )
+        })
+        
+      }      
+      outputOptions(output, 'planOptsUi', suspendWhenHidden=FALSE)
+      
+      
       ## patient ids
+      
       output$ptidFilUi<-renderUI({
         selectInput("ptId", label="Patient ID",
                     choices=unique(datNam$ptId),
@@ -1103,7 +1132,7 @@ shinyServer(function(input, output, session) {
        
         datCol<-reactive({
           datCol1<-datInf()
-          if(input$colByVar==FALSE){
+          if(!"colByVar" %in% input$planOpts){
             datCol1$col<-"#3c8dbc"
           }  else if(input$pl=="infec"){
             cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
@@ -1214,12 +1243,12 @@ shinyServer(function(input, output, session) {
             map<-leafletProxy("map")
             map %>% 
               clearMarkers() %>%
-              clearControls() %>%
+              removeControl("plLeg") %>%
               addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=8, color="black",
                                weight=1, fillOpacity=1, layerId=~ptId)
               
             
-            if(input$wardLabShow==TRUE){
+            if("wardLabShow" %in% input$planOpts){
               map %>% addLabelOnlyMarkers(data=wardLab, lng=~xMid, lat=~yMid, label=~htmlEscape(wardId),
                                     labelOptions=labelOptions(noHide=T,offset=c(0,-10), textOnly=T, 
                                                               style = list(
@@ -1227,26 +1256,29 @@ shinyServer(function(input, output, session) {
                                                                 "font-size" = "15px")
                                                               )
                                     )}
-            if(input$colByVar==FALSE){
+            if(!"colByVar" %in% input$planOpts){
               map %>% clearControls()
             } else if(input$pl=="infec"){
               map %>% addLegend(position="bottomright", 
                                 colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
                                          brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
                                 ),
-                                labels=levels(datCol()$infec), opacity=1)
+                                labels=levels(datCol()$infec), opacity=1, layerId="plLeg", 
+                                title="Patient characteristic")
               } else if(input$pl=="gendis"){
                 map %>% addLegend(position="bottomright", 
                                   colors=brewer.pal(3, "Set1"), 
-                                  labels=levels(datCol()$gendis), opacity=1)
-                
+                                  labels=levels(datCol()$gendis), opacity=1, layerId="plLeg", 
+                                  title="Patient characteristic")
               } else if(input$pl=="acq"){
                 map %>% addLegend(position="bottomright", 
                                   colors=brewer.pal(3, "Set1")[1:2], 
-                                  labels=c("Hospital", "Community"), opacity=1)
+                                  labels=c("Hospital", "Community"), opacity=1, layerId="plLeg", 
+                                  title="Patient characteristic")
               } else if(input$pl!="" & input$pl!="selvar") {
               map %>% addLegend(position="bottomright", colors=unique(datCol()$col),
-                                labels=levels(datCol()[,input$pl]), opacity=1)
+                                labels=levels(datCol()[,input$pl]), opacity=1, layerId="plLeg", 
+                                title="Patient characteristic")
             }
           }
           
@@ -1293,8 +1325,6 @@ shinyServer(function(input, output, session) {
           
         })
   
-      
-
 
         ## create infection link lines
         
@@ -1353,7 +1383,7 @@ shinyServer(function(input, output, session) {
         
         
         observe({
-          if(input$lnk==TRUE){
+          if("lnk" %in% input$planOpts){
             map<-leafletProxy("map")
             if(!is.null(lnkLine())){
               map<-map%>%clearGroup("lnks")
@@ -1371,7 +1401,7 @@ shinyServer(function(input, output, session) {
             map %>%
               clearGroup("lnks")
           }
-          if(input$lnkGen==TRUE){
+          if("lnkGen" %in% input$planOpts){
             map<-leafletProxy("map")
             if(!is.null(lnkGenLine())){
               map<-map%>%clearGroup("lnksGen")
@@ -1389,10 +1419,47 @@ shinyServer(function(input, output, session) {
             map %>%
               clearGroup("lnksGen")
           }
-          
-          
-            
+
           })
+        
+        observe({
+          if("lnk" %in% input$planOpts & "lnkGen" %in% input$planOpts){
+            map<-leafletProxy("map") 
+            map %>% addLegend(position="bottomleft", 
+                              colors=c("blue", "red"), 
+                              labels=c("Genetic", "Epidemiological"),
+                              layerId="lnkLeg",
+                              title="Links", 
+                              opacity=1
+                              )
+          } else if("lnk" %in% input$planOpts){
+            map<-leafletProxy("map") 
+            map %>% 
+              removeControl("lnkLeg") %>%
+              addLegend(position="bottomleft", 
+                              colors=c("red"), 
+                              labels=c("Epidemiological"),
+                              layerId="lnkLeg",
+                              title="Links", 
+                              opacity=1
+            )  
+          } else if("lnkGen" %in% input$planOpts){
+            map<-leafletProxy("map")
+            map %>%
+              removeControl("lnkLeg") %>%
+              addLegend(position="bottomleft", 
+                        colors=c("blue"), 
+                        labels=c("Genetic"), 
+                        layerId="lnkLeg", 
+                        title="Links", 
+                        opacity=1)
+          } else {
+            map<-leafletProxy("map")
+            map %>% removeControl("lnkLeg")
+          }  
+        })
+        
+        
 #        output$jazzytable<-renderTable({
 #          datCol()
 #        })

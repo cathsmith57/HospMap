@@ -114,10 +114,9 @@ body <- dashboardBody(
               column(width=4,
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disTab",
-                                     checkboxInput("wardLabShow", label="Show ward labels", value=F),
                                      uiOutput("dayUi"),
-                                     checkboxInput("colByVar", label="Colour by patient characteristics", value=T),
-                                     conditionalPanel(condition="input.colByVar",
+                                     uiOutput("planOptsUi"),
+                                     conditionalPanel(condition="input.planOpts.includes('colByVar')",
                                                       selectizeInput('pl', label='Characteristic', 
                                                                      choices=c("ptId","infec","acq"),
                                                                      options=list(
@@ -126,7 +125,6 @@ body <- dashboardBody(
                                                                      )
                                                       ),
                                                       conditionalPanel(condition="input.pl=='infec'",
-                                                                       checkboxInput("lnk", "Show links", value=F),
                                                                        numericInput('incMin', label='Minimum incubation period (days)', 
                                                                                    min=0, value=c(1)),
                                                                        numericInput('incMax', label='Maximum incubation period (days)', 
@@ -145,7 +143,6 @@ body <- dashboardBody(
                                                                                    min=1, max=5, value=1, step=1)
                                                       ),
                                                       conditionalPanel(condition="input.pl=='gendis'",
-                                                                       checkboxInput("lnkGen", "Show genetic links", value=F),
                                                                        uiOutput("genDIndexUi"),
                                                                        uiOutput("genDistUi")
                                                       )
