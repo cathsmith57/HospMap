@@ -115,7 +115,12 @@ body <- dashboardBody(
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disTab",
                                      uiOutput("dayUi"),
-                                     uiOutput("planOptsUi"),
+                                     checkboxGroupInput("planOpts", label = "Display",
+                                                        choices=c(
+                                                          "Ward labels" = "wardLabShow", 
+                                                          "Epidemiological links" = "lnk", 
+                                                          "Colour by patient characteristics" = "colByVar"),
+                                                        selected="colByVar"),
                                      conditionalPanel(condition="input.planOpts.includes('colByVar')",
                                                       selectizeInput('pl', label='Characteristic', 
                                                                      choices=c("ptId","infec","acq"),
@@ -125,6 +130,7 @@ body <- dashboardBody(
                                                                      )
                                                       ),
                                                       conditionalPanel(condition="input.pl=='infec'",
+
                                                                        numericInput('incMin', label='Minimum incubation period (days)', 
                                                                                    min=0, value=c(1)),
                                                                        numericInput('incMax', label='Maximum incubation period (days)', 
