@@ -548,8 +548,6 @@ shinyServer(function(input, output, session) {
 
   # Infection period diagram
 
-  
- 
   infecTL<-reactive({
     data.frame(
       day=c(0, 0-input$sampDel, 0-input$sampDel-input$incMax, 
@@ -764,23 +762,8 @@ shinyServer(function(input, output, session) {
       
     
       # Set up schematic plan
-    
-      ## calc largest number of cases on a ward on any day
-      
-#      maxCases<-
-#        max(
-#          unlist(
-#            lapply(unique(datNam$wardId), function(j){
-#              max(plyr::count(
-#                unlist(lapply(1:nrow(datNam[datNam$wardId==j,]), function(i){
-#                  seq(datNam[datNam$wardId==j, "dayIn"][i], (datNam[datNam$wardId==j, "dayOut"][i]-1),1)
-#                }))
-#              )$freq)
-#            })
-#          )
-#        )
-      
-      ## instead, giving each person a unique position on the ward
+
+      ## giving each person a unique position on the ward
       ## therefore, maxCases is the max no patients in ward ever
       
       maxCases<-
@@ -1717,7 +1700,134 @@ shinyServer(function(input, output, session) {
 
         }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
           
-         
+    # Network
+          observe({
+          ## Infection period and hosp acquired  
+          datInf<-reactive({
+            datInf1<-as.data.frame(datNam)
+            datInf1$symStart<-datInf1$samp-input$sampDel
+            datInf1$expStart<-datInf1$symStart-input$incMax
+            datInf1$expEnd<-datInf1$symStart-input$incMin
+            datInf1$infecEnd<-datInf1$symStart+input$infecLen
+            datInf1$infec<-NA
+            datInf1$infec[which(input$day<datInf1$expStart)]<-"PreExposure"
+            datInf1$infec[which(input$day>=datInf1$expStart &
+                                  input$day<=datInf1$expEnd)]<-"ExposurePeriod"
+            datInf1$infec[which(input$day>datInf1$expEnd & 
+                                  input$day<datInf1$symStart)]<-"IncubationPeriod"
+            datInf1$infec[which(input$day>=datInf1$symStart & 
+                                  input$day<=datInf1$infecEnd)]<-"InfectiousPeriod"
+            datInf1$infec[which(input$day>datInf1$infecEnd)]<-"PostInfectious"
+            
+            datInf1$infec<-factor(datInf1$infec, 
+                                  levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
+                                           "InfectiousPeriod", "PostInfectious"))
+            datInf1
+          })
+          
+          pw<-reactive({
+            data.frame(
+              id1=combn(unique(datInf()[,"ptId"]),2)[1,],
+              id2=combn(unique(datInf()[,"ptId"]),2)[2,], 
+              days=NA
+            )
+            
+          })
+          
+          ol1<-reactive({
+            if(input$netrad=="wardNet"){
+       #       ol1<-reactive({vector("list", length(unique(datInf()$wardId)))})
+              ol<-vector("list", length(unique(datInf()$wardId)))
+              lapply(1:nrow(pw()), function(i){
+                j<<-pw()$id1[i]
+                k<<-pw()$id2[i]
+                
+                lapply(1:length(unique(datInf()$wardId)), function(n){
+                  m<<-unique(datInf()$wardId)[n]
+                  if(j %in%  datInf()[datInf()$wardId==m, "ptId"] & k %in% 
+                     datInf()[datInf()$wardId==m, "ptId"]) {
+                    ol[[n]][i]<<-
+                      length(which(
+                        seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "dayIn"], 
+                            datInf()[datInf()$wardId==m & datInf()$ptId==j, "dayOut"]-1, 1) %in%
+                          seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "dayIn"], 
+                              datInf()[datInf()$wardId==m & datInf()$ptId==k, "dayOut"]-1, 1)
+                        
+                      ))  
+                  } else {
+                    ol[[n]][i]<<-0
+                  }
+                })
+              })
+              ol
+            } else if(input$netrad=="infNet"){
+        #      ol1<-reactive({vector("list", length(unique(datInf()$wardId)))})
+         #     ol<-ol1()
+              ol<-vector("list", length(unique(datInf()$wardId)))
+              
+              lapply(1:nrow(pw()), function(i){
+                j<<-pw()$id1[i]
+                k<<-pw()$id2[i]
+                
+                lapply(1:length(unique(datInf()$wardId)), function(n){
+                  m<<-unique(datInf()$wardId)[n]
+                  if(j %in%  datInf()[datInf()$wardId==m, "ptId"] & k %in% 
+                     datInf()[datInf()$wardId==m, "ptId"]) {
+                    ol[[n]][i]<<-
+                      length(which(
+                        seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "expStart"], 
+                            datInf()[datInf()$wardId==m & datInf()$ptId==j, "expEnd"], 1) %in%
+                          seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "symStart"], 
+                              datInf()[datInf()$wardId==m & datInf()$ptId==k, "infecEnd"], 1)
+                        
+                      ))  
+                  } else {
+                    ol[[n]][i]<<-0
+                  }
+                })
+              })
+              
+              ol
+            }
+            
+          })
+
+            
+        
+
+          pw1<-pw()
+          pw1[,"days"]<-rowSums(do.call(cbind, ol1()))
+          
+          pw1<-pw1[pw1$days!=0,]
+          
+          pNodes<-data.frame(
+            id=unique(c(as.character(pw1$id1), as.character(pw1$id2)))
+          )
+          
+          pEdges<-data.frame(
+            from=pw1$id1,
+            to=pw1$id2,
+            value=pw1$days
+          )
+          
+          
+          pEdges$width <- 1+pEdges$value/8 # line width
+          pEdges$color <- "gray"    # line color  
+          pEdges$arrows <- NULL # arrows: 'from', 'to', or 'middle'
+          pEdges$smooth <- FALSE    # should the edges be curved?
+          
+
+          output$net <- renderVisNetwork({
+            visNetwork(pNodes, pEdges) %>%
+              visInteraction(dragNodes = TRUE, 
+                             dragView = TRUE, 
+                             zoomView = TRUE,
+                             navigationButtons=TRUE) %>%
+              visLayout(randomSeed = 123) %>%
+              visOptions(highlightNearest = TRUE)
+          })
+          
+          })
           
     })
     

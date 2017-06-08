@@ -12,6 +12,7 @@ library(lubridate)
 library(gtable)
 library(sp)
 library(ggrepel)
+library(visNetwork)
 
 
 header <- dashboardHeader(title="HospMapper")
@@ -22,6 +23,7 @@ sidebar <- dashboardSidebar(
     menuItem(text="Input", tabName = "panIn", icon = icon("database")),
     menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
     menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
+    menuItem(text="Network", tabName = "panNet", icon = icon("sitemap")),
     conditionalPanel(condition="input.pan=='panPl'",
                      uiOutput("aspSliderUi")
                      ), 
@@ -257,9 +259,25 @@ body <- dashboardBody(
    #                      tableOutput("jazzytable1"), tableOutput("jazzytable2"))
               )
             )
-    )
+    ),
+
+  tabItem(tabName = "panNet", 
+          fluidRow(
+            column(width=4, 
+                   box(width=NULL,
+                       radioButtons("netrad", label="Network links", 
+                                    choices=c("Ward day overlap"= "wardNet", 
+                                              "Infection period overlap"="infNet"))
+                       )),
+            column(width=8,
+                   box(width=NULL,
+                   status="primary",
+                   tags$style(type = "text/css", "#net {height: calc(100vh - 80px) !important;}"),
+                   visNetworkOutput("net",height = 500, width="100%")
+            )
+          )
   )
 )
-
+))
 
   dashboardPage(header, sidebar, body)
