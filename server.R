@@ -1391,10 +1391,7 @@ shinyServer(function(input, output, session) {
             
           })
         
-        
-        
-        
-        
+
 #        output$jazzytable<-renderTable({
 #          datCol()
 #        })
@@ -1701,8 +1698,8 @@ shinyServer(function(input, output, session) {
         }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
           
     # Network
-          observe({
-          ## Infection period and hosp acquired  
+
+          ## Infection period 
           datInf<-reactive({
             datInf1<-as.data.frame(datNam)
             datInf1$symStart<-datInf1$samp-input$sampDel
@@ -1736,7 +1733,6 @@ shinyServer(function(input, output, session) {
           
           ol1<-reactive({
             if(input$netrad=="wardNet"){
-       #       ol1<-reactive({vector("list", length(unique(datInf()$wardId)))})
               ol<-vector("list", length(unique(datInf()$wardId)))
               lapply(1:nrow(pw()), function(i){
                 j<<-pw()$id1[i]
@@ -1761,10 +1757,7 @@ shinyServer(function(input, output, session) {
               })
               ol
             } else if(input$netrad=="infNet"){
-        #      ol1<-reactive({vector("list", length(unique(datInf()$wardId)))})
-         #     ol<-ol1()
               ol<-vector("list", length(unique(datInf()$wardId)))
-              
               lapply(1:nrow(pw()), function(i){
                 j<<-pw()$id1[i]
                 k<<-pw()$id2[i]
@@ -1775,11 +1768,14 @@ shinyServer(function(input, output, session) {
                      datInf()[datInf()$wardId==m, "ptId"]) {
                     ol[[n]][i]<<-
                       length(which(
-                        seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "expStart"], 
+                        (seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "expStart"], 
                             datInf()[datInf()$wardId==m & datInf()$ptId==j, "expEnd"], 1) %in%
                           seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "symStart"], 
-                              datInf()[datInf()$wardId==m & datInf()$ptId==k, "infecEnd"], 1)
-                        
+                              datInf()[datInf()$wardId==m & datInf()$ptId==k, "infecEnd"], 1)) |
+                          (seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "expStart"], 
+                               datInf()[datInf()$wardId==m & datInf()$ptId==k, "expEnd"], 1) %in%
+                             seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "symStart"], 
+                                 datInf()[datInf()$wardId==m & datInf()$ptId==j, "infecEnd"], 1))
                       ))  
                   } else {
                     ol[[n]][i]<<-0
@@ -1792,42 +1788,46 @@ shinyServer(function(input, output, session) {
             
           })
 
-            
-        
-
-          pw1<-pw()
-          pw1[,"days"]<-rowSums(do.call(cbind, ol1()))
-          
-          pw1<-pw1[pw1$days!=0,]
-          
-          pNodes<-data.frame(
-            id=unique(c(as.character(pw1$id1), as.character(pw1$id2)))
-          )
-          
-          pEdges<-data.frame(
-            from=pw1$id1,
-            to=pw1$id2,
-            value=pw1$days
-          )
-          
-          
-          pEdges$width <- 1+pEdges$value/8 # line width
-          pEdges$color <- "gray"    # line color  
-          pEdges$arrows <- NULL # arrows: 'from', 'to', or 'middle'
-          pEdges$smooth <- FALSE    # should the edges be curved?
-          
-
           output$net <- renderVisNetwork({
+            
+            if(input$netrad%in%c("wardNet", "infNet")){
+              pw1<-pw()
+              pw1[,"days"]<-rowSums(do.call(cbind, ol1()))
+              
+              pw1<-pw1[pw1$days!=0,]
+              
+              pNodes<-data.frame(
+                id=unique(c(as.character(pw1$id1), as.character(pw1$id2)))
+              )
+              
+              pEdges<-data.frame(
+                from=pw1$id1,
+                to=pw1$id2,
+                value=pw1$days
+              )
+              
+              pEdges$width <- 1+pEdges$value/8 # line width
+              pEdges$color <- "gray"    # line color  
+              pEdges$arrows <- NULL # arrows: 'from', 'to', or 'middle'
+              pEdges$smooth <- FALSE    # should the edges be curved?
+              
+            }
+
+            net<-
             visNetwork(pNodes, pEdges) %>%
+              visNodes(size=10) %>%
               visInteraction(dragNodes = TRUE, 
                              dragView = TRUE, 
                              zoomView = TRUE,
                              navigationButtons=TRUE) %>%
               visLayout(randomSeed = 123) %>%
               visOptions(highlightNearest = TRUE)
+           net
+            
           })
           
-          })
+          
+
           
     })
     
@@ -1837,22 +1837,6 @@ shinyServer(function(input, output, session) {
       input$gen}, {
         updateTabsetPanel(session, "pan", selected = "panEpi")
       })
-    
-
-    
-
     })
     
-        
-        
-
-    
-    
-
-
-
-
-
-
-
-
+     
