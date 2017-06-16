@@ -595,6 +595,8 @@ shinyServer(function(input, output, session) {
   
   
   output$infecPlot<-renderPlot({
+    validate(need(input$incMax>=input$incMin, 
+                  "Maximum incubation period must not be shorter than minimum inubation period"))
     
     ggplot()+
       geom_segment(data=infecTL(), aes(x=min(infecTL()$day), xend=max(infecTL()$day), y=1, yend=1))+
@@ -612,7 +614,6 @@ shinyServer(function(input, output, session) {
       theme(
         axis.ticks.length = unit(c(0,0),"inches"),
         panel.background = element_rect(fill = '#F0F0F0', colour = "white", size=1))
-  #      panel.border = element_rect(fill=NA, colour = "white", size=1, inherit.blank = F))
       
   })
   
@@ -1150,37 +1151,13 @@ shinyServer(function(input, output, session) {
           
         })
         
-        # update genetic distance index selector to include only patietns who are there
- #    observe({
-#       if(input$pan=="panPl"){
-#         updateSelectInput(session, "genDIndex",
-#                           choices=datFil()$ptId,
-#                           selected=datFil()$ptId[1])
-#       }
-#  
-#     })
-#     
-     # also do something similar for the patient id
-
-
- #    observe({
-#       if(input$pan=="panPl"){
-#         updateSelectInput(session, "ptId",
-#                           choices=datDay()$ptId,
-#                           selected=datDay()$ptId)
-#       }
-#       
-#       
-#       outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
-#       
-#     })
-     
-     
-
 
         # Render plan
         
         output$map<-renderLeaflet({
+          validate(need(input$incMax>=input$incMin, 
+                        "Maximum incubation period must not be shorter than minimum inubation period"))
+          validate(need(length(input$ptIdNet)>=2, "Please select at least two patients"))
           leaflet(options= leafletOptions(
             crs=leafletCRS(crsClass='L.CRS.Simple'),minZoom= -5, maxZoom = 5)) %>%
             fitBounds(lng1=bounds[2], lat1=bounds[1], lng2=bounds[3], lat2=bounds[4]) %>%
@@ -1392,10 +1369,6 @@ shinyServer(function(input, output, session) {
           })
         
 
-#        output$jazzytable<-renderTable({
-#          datCol()
-#        })
-        
       }
 
            
@@ -1698,56 +1671,59 @@ shinyServer(function(input, output, session) {
         }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
           
     # Network
+          
+          # Inputs
 
-          ## Infection period 
-          datInf<-reactive({
-            datInf1<-as.data.frame(datNam)
-            datInf1$symStart<-datInf1$samp-input$sampDel
-            datInf1$expStart<-datInf1$symStart-input$incMax
-            datInf1$expEnd<-datInf1$symStart-input$incMin
-            datInf1$infecEnd<-datInf1$symStart+input$infecLen
-            datInf1$infec<-NA
-            datInf1$infec[which(input$day<datInf1$expStart)]<-"PreExposure"
-            datInf1$infec[which(input$day>=datInf1$expStart &
-                                  input$day<=datInf1$expEnd)]<-"ExposurePeriod"
-            datInf1$infec[which(input$day>datInf1$expEnd & 
-                                  input$day<datInf1$symStart)]<-"IncubationPeriod"
-            datInf1$infec[which(input$day>=datInf1$symStart & 
-                                  input$day<=datInf1$infecEnd)]<-"InfectiousPeriod"
-            datInf1$infec[which(input$day>datInf1$infecEnd)]<-"PostInfectious"
+          ### patients included in network
+          
+          ## patient ids
+          output$filVarsNetUi<-renderUI({
+            selectInput("ptIdNet", label="Patient IDs to inlucde", 
+                        choices=unique(datNam$ptId), 
+                        selected=unique(datNam$ptId), 
+                        multiple=T)
+          })
+          outputOptions(output, "filVarsNetUi", suspendWhenHidden = FALSE)
+
+          ## Infection period and filter
+          datNet<-reactive({
+            datNet1<-as.data.frame(datNam)
+            datNet1$symStart<-datNet1$samp-input$sampDelNet
+            datNet1$expStart<-datNet1$symStart-input$incMaxNet
+            datNet1$expEnd<-datNet1$symStart-input$incMinNet
+            datNet1$infecEnd<-datNet1$symStart+input$infecLenNet
+            datNet1<-datNet1[datNet1$ptId%in%input$ptIdNet,]
             
-            datInf1$infec<-factor(datInf1$infec, 
-                                  levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
-                                           "InfectiousPeriod", "PostInfectious"))
-            datInf1
+            
+            datNet1
           })
           
           pw<-reactive({
             data.frame(
-              id1=combn(unique(datInf()[,"ptId"]),2)[1,],
-              id2=combn(unique(datInf()[,"ptId"]),2)[2,], 
+              id1=combn(unique(datNet()[,"ptId"]),2)[1,],
+              id2=combn(unique(datNet()[,"ptId"]),2)[2,], 
               days=NA
             )
             
           })
-          
+
           ol1<-reactive({
             if(input$netrad=="wardNet"){
-              ol<-vector("list", length(unique(datInf()$wardId)))
+              ol<-vector("list", length(unique(datNet()$wardId)))
               lapply(1:nrow(pw()), function(i){
                 j<<-pw()$id1[i]
                 k<<-pw()$id2[i]
                 
-                lapply(1:length(unique(datInf()$wardId)), function(n){
-                  m<<-unique(datInf()$wardId)[n]
-                  if(j %in%  datInf()[datInf()$wardId==m, "ptId"] & k %in% 
-                     datInf()[datInf()$wardId==m, "ptId"]) {
+                lapply(1:length(unique(datNet()$wardId)), function(n){
+                  m<<-unique(datNet()$wardId)[n]
+                  if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
+                     k %in% datNet()[datNet()$wardId==m, "ptId"]) {
                     ol[[n]][i]<<-
                       length(which(
-                        seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "dayIn"], 
-                            datInf()[datInf()$wardId==m & datInf()$ptId==j, "dayOut"]-1, 1) %in%
-                          seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "dayIn"], 
-                              datInf()[datInf()$wardId==m & datInf()$ptId==k, "dayOut"]-1, 1)
+                        seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayIn"], 
+                            datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayOut"]-1, 1) %in%
+                          seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayIn"], 
+                              datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayOut"]-1, 1)
                         
                       ))  
                   } else {
@@ -1757,25 +1733,26 @@ shinyServer(function(input, output, session) {
               })
               ol
             } else if(input$netrad=="infNet"){
-              ol<-vector("list", length(unique(datInf()$wardId)))
+              ol<-vector("list", length(unique(datNet()$wardId)))
               lapply(1:nrow(pw()), function(i){
                 j<<-pw()$id1[i]
                 k<<-pw()$id2[i]
                 
-                lapply(1:length(unique(datInf()$wardId)), function(n){
-                  m<<-unique(datInf()$wardId)[n]
-                  if(j %in%  datInf()[datInf()$wardId==m, "ptId"] & k %in% 
-                     datInf()[datInf()$wardId==m, "ptId"]) {
+                lapply(1:length(unique(datNet()$wardId)), function(n){
+                  m<<-unique(datNet()$wardId)[n]
+                  if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
+                     k %in% datNet()[datNet()$wardId==m, "ptId"] &
+                     input$incMaxNet>=input$incMinNet) {
                     ol[[n]][i]<<-
                       length(which(
-                        (seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "expStart"], 
-                            datInf()[datInf()$wardId==m & datInf()$ptId==j, "expEnd"], 1) %in%
-                          seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "symStart"], 
-                              datInf()[datInf()$wardId==m & datInf()$ptId==k, "infecEnd"], 1)) |
-                          (seq(datInf()[datInf()$wardId==m & datInf()$ptId==k, "expStart"], 
-                               datInf()[datInf()$wardId==m & datInf()$ptId==k, "expEnd"], 1) %in%
-                             seq(datInf()[datInf()$wardId==m & datInf()$ptId==j, "symStart"], 
-                                 datInf()[datInf()$wardId==m & datInf()$ptId==j, "infecEnd"], 1))
+                        (seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "expStart"], 
+                             datNet()[datNet()$wardId==m & datNet()$ptId==j, "expEnd"], 1) %in%
+                          seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "symStart"], 
+                              datNet()[datNet()$wardId==m & datNet()$ptId==k, "infecEnd"], 1)) |
+                          (seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "expStart"], 
+                               datNet()[datNet()$wardId==m & datNet()$ptId==k, "expEnd"], 1) %in%
+                             seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "symStart"], 
+                                 datNet()[datNet()$wardId==m & datNet()$ptId==j, "infecEnd"], 1))
                       ))  
                   } else {
                     ol[[n]][i]<<-0
@@ -1789,6 +1766,11 @@ shinyServer(function(input, output, session) {
           })
 
           output$net <- renderVisNetwork({
+            validate(need(input$incMaxNet>=input$incMinNet, 
+                          "Maximum incubation period must not be shorter than minimum inubation period"))
+            validate(need(length(input$ptIdNet)>=2, "Please select at least two patients"))
+            validate(need(sum(do.call(cbind, ol1()))>=1, "No links between selected patients"))
+
             
             if(input$netrad%in%c("wardNet", "infNet")){
               pw1<-pw()
