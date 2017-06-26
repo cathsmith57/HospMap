@@ -187,7 +187,6 @@ body <- dashboardBody(
                          ), 
                      conditionalPanel(condition="input.pl=='infec'",
                                       plotOutput("infecPlot", height=200))
-#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
               )
             )
     ),
@@ -296,7 +295,8 @@ tabItem(tabName = "panTime",
         fluidRow(
           column(width=4, 
                  tabBox(width=NULL,
-                        tabPanel(title="Display", value="disTimeTab" 
+                        tabPanel(title="Display", value="disTimeTab", 
+                                 checkboxInput("sampDat", label="Sample date")
                         ),
                         tabPanel(title="Filter", value="filTimeTab",
                                  uiOutput("filVarsTimeUi")
@@ -304,8 +304,11 @@ tabItem(tabName = "panTime",
           column(width=8,
                  box(width=NULL,
                      status="primary",
-                     tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;}"),
-                     timevisOutput("tl",height = 500, width="100%")
+                     tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;}
+                                #tl .vis-item.vis-dot {border-color:red}
+                                "),
+                     timevisOutput("tl",height = 500, width="100%"),
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
                  )
           )
         )

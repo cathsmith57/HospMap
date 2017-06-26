@@ -1848,10 +1848,27 @@ shinyServer(function(input, output, session) {
 
             datTime1<-
               datTime1 %>%
-              rename(group=ptId, start=dayIn, end=dayOut, content=wardId)
+              rename(group=ptId, start=dayIn, end=dayOut, content=wardId) %>%
+              mutate(type="range") %>%
+              select(group, content, start, end, style, type) 
             
             datTime1
           })
+          
+          ## Sample date 
+          datTLSamp<-reactive({
+            datTLSamp1<-as.data.frame(coreDatNam)
+            datTLSamp1<-datTLSamp1[datTLSamp1$ptId%in%input$ptIdTime,]
+  
+            datTLSamp1<-
+              datTLSamp1 %>%
+              rename(group=ptId, start=samp, content=wardSamp) %>%
+              mutate(style=NA, end=NA, type="range") %>%
+              select(group, content, start, end, style, type)
+            
+            datTLSamp1
+          })
+          
           
           ## Groups for time line
           
@@ -1866,6 +1883,16 @@ shinyServer(function(input, output, session) {
             timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE))
           })
           
+          observe({
+            if(input$sampDat==TRUE){
+              addItem("tl", data=list(group="pt4", content="", start="01/01/2017", end=NA, style=NA, type="point", id="fred"))
+            }
+            if(input$sampDat==FALSE){
+              removeItem("tl",itemId="fred")
+            }
+          })
+          
+          output$jazzytable<-renderTable(datTime())
     })
     
     # move focus to epicurves tab if gen button pressed
