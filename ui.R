@@ -13,7 +13,7 @@ library(gtable)
 library(sp)
 library(ggrepel)
 library(visNetwork)
-
+library(timevis)
 
 header <- dashboardHeader(title="HospMapper")
 
@@ -24,6 +24,7 @@ sidebar <- dashboardSidebar(
     menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
     menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
     menuItem(text="Network", tabName = "panNet", icon = icon("sitemap")),
+    menuItem(text="Timeline", tabName="panTime", icon=icon("clock-o")),
     conditionalPanel(condition="input.pan=='panPl'",
                      uiOutput("aspSliderUi")
                      ), 
@@ -290,6 +291,24 @@ body <- dashboardBody(
             )
           )
   )
+),
+tabItem(tabName = "panTime", 
+        fluidRow(
+          column(width=4, 
+                 tabBox(width=NULL,
+                        tabPanel(title="Display", value="disTimeTab" 
+                        ),
+                        tabPanel(title="Filter", value="filTimeTab",
+                                 uiOutput("filVarsTimeUi")
+                        ))),
+          column(width=8,
+                 box(width=NULL,
+                     status="primary",
+                     tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;}"),
+                     timevisOutput("tl",height = 500, width="100%")
+                 )
+          )
+        )
 )
 ))
 

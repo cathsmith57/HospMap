@@ -48,13 +48,14 @@ shinyServer(function(input, output, session) {
     )
   
   
- 
-
   # Disable tabs
   ## epi curves and plan until button is pressed
   observe({
     toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0 & input$mvmt==TRUE)
     toggleState(selector="#pan li a[data-value=panEpi]", condition=input$gen!=0)
+    toggleState(selector="#pan li a[data-value=panNet]", condition=input$gen!=0 & input$mvmt==TRUE)
+    toggleState(selector="#pan li a[data-value=panTime]", condition=input$gen!=0 & input$mvmt==TRUE)
+    
   })
 
   # Aspect ratio slider
@@ -1809,7 +1810,61 @@ shinyServer(function(input, output, session) {
           })
           
           
+          
+          
+    # Timeline
+          
+          # Inputs
+          
+          ### patients included in time line
+          
+          ## patient ids
+          output$filVarsTimeUi<-renderUI({
+            selectInput("ptIdTime", label="Patient IDs to inlucde", 
+                        choices=unique(datNam$ptId), 
+                        selected=unique(datNam$ptId), 
+                        multiple=T)
+          })
+          outputOptions(output, "filVarsTimeUi", suspendWhenHidden = FALSE)
+          
+          ## Infection period and filter
+          datTime<-reactive({
+            datTime1<-as.data.frame(datNam)
+  #          datTime1$symStart<-datTime1$samp-input$sampDelTime
+  #          datTime1$expStart<-datTime1$symStart-input$incMaxTime
+  #          datTime1$expEnd<-datTime1$symStart-input$incMinTime
+  #          datTime1$infecEnd<-datTime1$symStart+input$infecLenTime
+            datTime1<-datTime1[datTime1$ptId%in%input$ptIdTime,]
+            
+            suppressWarnings(
+              colRampT<-colorRampPalette(brewer.pal(length(levels(datTime1$wardId)), "Set1"))
+            )
+            
+            colsT<-colRampT(length(levels(datTime1$wardId)))
+            factpalT <- colorFactor(colsT, datTime1$wardId)
+            datTime1$col<- factpalT(datTime1$wardId)
 
+            datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
+
+            datTime1<-
+              datTime1 %>%
+              rename(group=ptId, start=dayIn, end=dayOut, content=wardId)
+            
+            datTime1
+          })
+          
+          ## Groups for time line
+          
+          tGrp<-reactive({
+            data.frame(
+            id=unique(datTime()$group),
+            content=unique(datTime()$group)
+          )
+          })
+          
+          output$tl<-renderTimevis({
+            timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE))
+          })
           
     })
     
