@@ -296,7 +296,7 @@ tabItem(tabName = "panTime",
           column(width=4, 
                  tabBox(width=NULL,
                         tabPanel(title="Display", value="disTimeTab", 
-                                 checkboxInput("sampDat", label="Sample date")
+                                 checkboxInput("sampDat", label="Sample date", value=TRUE)
                         ),
                         tabPanel(title="Filter", value="filTimeTab",
                                  uiOutput("filVarsTimeUi")
@@ -305,10 +305,11 @@ tabItem(tabName = "panTime",
                  box(width=NULL,
                      status="primary",
                      tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;}
-                                #tl .vis-item.vis-dot {border-color:red}
+                                #tl .vis-item.vis-dot {border-color:black}
                                 "),
                      timevisOutput("tl",height = 500, width="100%"),
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
+                     textOutput("jazzytext")
+  #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
                  )
           )
         )

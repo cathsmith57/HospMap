@@ -1855,21 +1855,6 @@ shinyServer(function(input, output, session) {
             datTime1
           })
           
-          ## Sample date 
-          datTLSamp<-reactive({
-            datTLSamp1<-as.data.frame(coreDatNam)
-            datTLSamp1<-datTLSamp1[datTLSamp1$ptId%in%input$ptIdTime,]
-  
-            datTLSamp1<-
-              datTLSamp1 %>%
-              rename(group=ptId, start=samp, content=wardSamp) %>%
-              mutate(style=NA, end=NA, type="range") %>%
-              select(group, content, start, end, style, type)
-            
-            datTLSamp1
-          })
-          
-          
           ## Groups for time line
           
           tGrp<-reactive({
@@ -1879,20 +1864,40 @@ shinyServer(function(input, output, session) {
           )
           })
           
+          ## Sample dates
+          datTLSamp<-reactive({
+            datTLSamp1<-as.data.frame(coreDatNam)
+            datTLSamp1<-datTLSamp1[datTLSamp1$ptId%in%input$ptIdTime,]
+            
+            datTLSamp1<-
+              datTLSamp1 %>%
+              rename(group=ptId, start=samp) %>%
+              mutate(style=NA, end=NA, type="point", content="", id=paste0("sampl",1:nrow(datTLSamp1))) %>%
+              select(group, content, start, end, style, type, id)
+            
+            datTLSamp1
+          })
+
           output$tl<-renderTimevis({
             timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE))
           })
           
-          observe({
-            if(input$sampDat==TRUE){
-              addItem("tl", data=list(group="pt4", content="", start="01/01/2017", end=NA, style=NA, type="point", id="fred"))
-            }
-            if(input$sampDat==FALSE){
-              removeItem("tl",itemId="fred")
-            }
-          })
+          sampDatDis<-reactive({input$sampDat})
           
-          output$jazzytable<-renderTable(datTime())
+          delay(2000,
+          observe({
+            if(sampDatDis()==TRUE){
+              addItems("tl", data=datTLSamp())
+            }
+            else {
+              lapply(unique(datTLSamp()$id), function(i) {
+                removeItem("tl", id=i) 
+              })
+            }
+          }) 
+)
+          output$jazzytext<-renderText(sampDatDis())
+#          output$jazzytable<-renderTable(datTime())
     })
     
     # move focus to epicurves tab if gen button pressed
