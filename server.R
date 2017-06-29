@@ -773,7 +773,7 @@ shinyServer(function(input, output, session) {
           datNam %>%
             group_by(wardId) %>%
             count() %>%
-            select(n)
+            pull(n)
           )
       
       
@@ -1826,8 +1826,30 @@ shinyServer(function(input, output, session) {
                         multiple=T)
           })
           outputOptions(output, "filVarsTimeUi", suspendWhenHidden = FALSE)
+
+          ## wards to display in plan
+          output$wardFilTimeUi<-renderUI({
+            if(input$datrad=="dum" | !is.null(input$fileMvmt) & input$mvmt==TRUE){
+              selectInput('wardFilTime', label="Select wards", 
+                          choices=unique(mvmtDat()[, input$wardid]), 
+                          selected=unique(mvmtDat()[, input$wardid]), 
+                          multiple=T)
+              
+            } else {
+              selectInput('wardFilTime', label="Select wards", 
+                          choices=unique(coreDat()[, input$wardSamp]), 
+                          selected=unique(coreDat()[, input$wardSamp]),
+                          multiple=T)
+            }
+          })
           
-          ## Infection period and filter
+          
+          outputOptions(output, "wardFilTimeUi", suspendWhenHidden = FALSE)
+          
+          
+          
+      
+          # Infection period and filter
           datTime<-reactive({
             datTime1<-as.data.frame(datNam)
   #          datTime1$symStart<-datTime1$samp-input$sampDelTime
@@ -1836,6 +1858,20 @@ shinyServer(function(input, output, session) {
   #          datTime1$infecEnd<-datTime1$symStart+input$infecLenTime
             datTime1<-datTime1[datTime1$ptId%in%input$ptIdTime,]
             
+            if(!(length(input$ptIdTime)>=1 & length(input$wardFilTime>=1))){
+              datTime1
+            } else {
+                
+              
+            
+            datTime1<-
+              datTime1 %>%
+              filter(ptId %in% 
+                       (datTime1 %>%
+                          filter(wardId %in% input$wardFilTime)%>%
+                          distinct(ptId) %>% pull(ptId)
+                           ))
+            
             suppressWarnings(
               colRampT<-colorRampPalette(brewer.pal(length(levels(datTime1$wardId)), "Set1"))
             )
@@ -1843,16 +1879,20 @@ shinyServer(function(input, output, session) {
             colsT<-colRampT(length(levels(datTime1$wardId)))
             factpalT <- colorFactor(colsT, datTime1$wardId)
             datTime1$col<- factpalT(datTime1$wardId)
-
-            datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
-
-            datTime1<-
-              datTime1 %>%
-              rename(group=ptId, start=dayIn, end=dayOut, content=wardId) %>%
-              mutate(type="range") %>%
-              select(group, content, start, end, style, type) 
+            
+            if (nrow(datTime1)>=1){
+              datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
+              
+              datTime1<-
+                datTime1 %>%
+                rename(group=ptId, start=dayIn, end=dayOut, content=wardId) %>%
+                mutate(type="range") %>%
+                select(group, content, start, end, style, type) 
+              
+            }
             
             datTime1
+            }
           })
           
           ## Groups for time line
@@ -1865,39 +1905,55 @@ shinyServer(function(input, output, session) {
           })
           
           ## Sample dates
-          datTLSamp<-reactive({
-            datTLSamp1<-as.data.frame(coreDatNam)
-            datTLSamp1<-datTLSamp1[datTLSamp1$ptId%in%input$ptIdTime,]
-            
-            datTLSamp1<-
-              datTLSamp1 %>%
-              rename(group=ptId, start=samp) %>%
-              mutate(style=NA, end=NA, type="point", content="", id=paste0("sampl",1:nrow(datTLSamp1))) %>%
-              select(group, content, start, end, style, type, id)
-            
-            datTLSamp1
-          })
+         
 
           output$tl<-renderTimevis({
+            validate(need(nrow(datTime())>=1, "No data selected - check filters"))
+            validate(need(length(input$ptIdTime)>=1 & length(input$wardFilTime)>=1, "No data selected - check filters"))
             timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE))
           })
           
-          sampDatDis<-reactive({input$sampDat})
+          delay(100,
+           observe({
+             datTLSamp<-reactive({
+               datTLSamp1<-as.data.frame(coreDatNam)
+               datTLSamp1<-datTLSamp1[datTLSamp1$ptId%in%input$ptIdTime,]
+               if(!(length(input$ptIdTime)>=1 & length(input$wardFilTime>=1))){
+                 datTLSamp1
+               } else {
+                 
+                 datTLSamp1<-
+                   datTLSamp1 %>%
+                   filter(ptId %in% 
+                            (datTLSamp1 %>%
+                               filter(wardSamp %in% input$wardFilTime)%>%
+                               distinct(ptId) %>% pull(ptId)
+                            )) %>%
+                   rename(group=ptId, start=samp) %>%
+                   mutate(style=NA, end=NA, type="point", content="") %>%
+                   mutate(id=paste0("sampl",1:n()))%>%
+                   #             rowwise() %>%
+                   #              mutate(id=paste(sample(c(letters, LETTERS, 0:9), 16, replace = TRUE), collapse = "")) %>%
+                   select(group, content, start, end, style, type, id)
+                 
+                 datTLSamp1}
+             })
+             
+                 
+             if(input$sampDat==TRUE & nrow(datTLSamp())>=1){
+               addItems("tl", data=datTLSamp())
+             } else if(nrow(datTLSamp())>=1) {
+               lapply(unique(datTLSamp()$id), function(i){
+                 removeItem("tl", itemId=i) 
+               })
+             }
+             
+          })
+          )
+
           
-          delay(2000,
-          observe({
-            if(sampDatDis()==TRUE){
-              addItems("tl", data=datTLSamp())
-            }
-            else {
-              lapply(unique(datTLSamp()$id), function(i) {
-                removeItem("tl", id=i) 
-              })
-            }
-          }) 
-)
-          output$jazzytext<-renderText(sampDatDis())
-#          output$jazzytable<-renderTable(datTime())
+#          output$jazzytext<-renderText(sampDatDis())
+#          output$jazzytable<-renderTable(datTLSamp())
     })
     
     # move focus to epicurves tab if gen button pressed
