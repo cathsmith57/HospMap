@@ -1,36 +1,117 @@
 shinyServer(function(input, output, session) {
+
+  #----------------------------------------
+  # About tab
+  #----------------------------------------
   
+  # Infection period diagram
+  ## trigger for updating plot
+  abtTrig<-reactive({
+    paste(input$goAbt, input$pan=="panAbt")
+  })
+  
+  ## Infection time line data
+  infecTL<-eventReactive(abtTrig(),{
+    data.frame(
+      day=c(0, 0-input$sampDelEx, 0-input$sampDelEx-input$incMaxEx, 
+            0-input$sampDelEx-input$incMinEx, 0-input$sampDelEx+input$infecLenEx), 
+      event=c("samp", "symStart", "expStart", "expEnd", "infecEnd"),
+      eventLab=c("Sample \ndate", "Symptoms \nstart", "Max incubation \nperiod", 
+                 "Min incubation \nperiod", "Infectious \nperiod end")
+    )
+  })
+  
+  ## Infection periods data
+  infecPer<-eventReactive(abtTrig(),{
+    data.frame(
+      x=c(infecTL()$day[infecTL()$event=="expStart"],
+          infecTL()$day[infecTL()$event=="expStart"],
+          infecTL()$day[infecTL()$event=="expEnd"],
+          infecTL()$day[infecTL()$event=="symStart"],
+          infecTL()$day[infecTL()$event=="symStart"]),
+      xend=c(infecTL()$day[infecTL()$event=="expEnd"],
+             infecTL()$day[infecTL()$event=="expEnd"],
+             infecTL()$day[infecTL()$event=="symStart"],
+             infecTL()$day[infecTL()$event=="samp"],
+             infecTL()$day[infecTL()$event=="infecEnd"]),
+      y=c(0.9,0.8,0.8,0.7,0.6),
+      yend=c(0.9,0.8,0.8,0.7,0.6), 
+      per=c("A","B", "B", "C", "D"), 
+      inc=c("solid", "dotted", "solid", "solid", "solid")
+    )
+  })
+  
+  ## Infection period labels
+  infecLabs<-eventReactive(abtTrig(),{
+    data.frame(
+      lab=c("Exposure Period", "Incubation period", 
+            "Sample delay", "Infectious period"), 
+      x=c(sum(infecTL()$day[infecTL()$event%in%c("expStart", "expEnd")])/2,
+          sum(infecTL()$day[infecTL()$event%in%c("expEnd", "symStart")])/2,
+          sum(infecTL()$day[infecTL()$event%in%c("symStart", "samp")])/2,
+          sum(infecTL()$day[infecTL()$event%in%c("symStart", "infecEnd")])/2), 
+      y=c(0.9,0.8,0.7,0.6)
+    )
+  })
+  
+  ## Generate infection period plot
+  output$infecPlot<-renderPlot({
+    validate(need(input$incMaxEx>=input$incMinEx, 
+                  "Maximum incubation period must not be shorter than minimum inubation period"))
+    ggplot()+
+      geom_segment(data=infecTL(), aes(x=min(infecTL()$day), xend=max(infecTL()$day), y=1, yend=1))+
+      geom_label_repel(data=infecTL(), aes(x=day, y=1, label=eventLab), nudge_y = 0.1)+
+      geom_segment(data=infecPer(), aes(x=x, y=y, xend=xend, yend=yend, col=per, linetype=inc), size=2)+
+      scale_color_manual(values=c("#FF7F00", "#FFFFBF", "black", "#33A02C"), 
+                         breaks=levels(infecPer()$per),
+                         name="", guide=FALSE)+
+      scale_linetype_identity(guide=F)+
+      geom_text(data=infecLabs(), aes(x=x, y=y, label=lab), nudge_y=0.05)+
+      scale_y_continuous(limits=c(0.5,1.2), expand=c(0,0))+
+      scale_x_continuous(limits=c(infecTL()$day[infecTL()$event=="expStart"]-0.7, 
+                                  infecTL()$day[infecTL()$event=="infecEnd"]+0.5), expand=c(0,0))+
+      theme_void()+
+      theme(
+        axis.ticks.length = unit(c(0,0),"inches"),
+        panel.background = element_rect(fill = '#F0F0F0', colour = "white", size=1))
+  })
+
+  #----------------------------------------
+  # Input tab
+  #----------------------------------------
+
   # Dummy data
-  
+  ## Core
   coreDum<-data.frame(
     ptId=paste0("pt", c(1,2,3,4,5,6,7,8,9,10)), 
     wardSamp=c("C", "C", "A", "A", "C", "A", "C", "A", "C", "B"), 
-    admDat=c("19/1/2017", "03/1/2017", "02/1/2017", "07/1/2017", "04/1/2017", 
-             "05/1/2017", "09/1/2017", "05/1/2017", "02/1/2017", "07/1/2017"),
-    samp=c("14/1/2017", "7/1/2017","4/1/2017", "18/1/2017","13/1/2017",
-           "10/1/2017", "12/1/2017","9/1/2017", "26/1/2017","19/1/2017"), 
-    var1=c("A", "A", "B", "B", "A", "A", "B", "A", "B", "B"),
-    var2=c("B", "A", "B", "B", "B", "B", "B", "B", "B", "A"),
-    var3=c("B", "A", "B", "B", "A", "A", "A", "A", "B", "A")
+    admDat=dmy(c("1/1/2017", "03/1/2017", "02/1/2017", "07/1/2017", "04/1/2017", 
+             "05/1/2017", "09/1/2017", "05/1/2017", "02/1/2017", "07/1/2017")),
+    samp=dmy(c("14/1/2017", "7/1/2017","4/1/2017", "18/1/2017","13/1/2017",
+           "10/1/2017", "12/1/2017","9/1/2017", "26/1/2017","19/1/2017")), 
+    var1=c("A", "A", NA, "B", "A", "A", "B", "A", "B", "B"),
+    var2=c("B", NA, "B", "B", "B", "B", "B", "B", "B", "A"),
+    var3=c("B", "A", "B", "B", "A", "A", "A", "A", "B", "A"),
+    stringsAsFactors = FALSE
   )
   
-
+  ## Transitions 
   mvmtDum<-data.frame(
     ptId=paste0("pt",c(1,1,1,2,2,3,4,4,4,5,5,5,6,7,7,8,9,9,10,10)),
     wardId=c("B","A","C","C","A","A","C","A","B","C","B","A","A","C","A","A","A","C","B","C"),
     floor=as.integer(c(2,1,2,2,1,1,2,1,2,2,2,1,1,2,1,1,1,2,2,2)),
-    dayIn=c("2/1/2017", "7/1/2017", "13/1/2017", "3/1/2017", "12/1/2017",
+    dayIn=dmy(c("2/1/2017", "7/1/2017", "13/1/2017", "3/1/2017", "12/1/2017",
                 "2/1/2017", "7/1/2017", "18/1/2017", "20/1/2017", "4/1/2017",
                 "18/1/2017", "21/1/2017", "5/1/2017", "9/1/2017", "14/1/2017",
-                "5/1/2017", "2/1/2017", "19/1/2017", "7/1/2017", "20/1/2017"),
-    dayOut=c("7/1/2017", "13/1/2017", "17/1/2017", "12/1/2017", "20/1/2017",
+                "5/1/2017", "2/1/2017", "19/1/2017", "7/1/2017", "20/1/2017")),
+    dayOut=dmy(c("7/1/2017", "13/1/2017", "17/1/2017", "12/1/2017", "20/1/2017",
                 "7/1/2017", "18/1/2017", "20/1/2017", "25/1/2017", "18/1/2017",
                 "21/1/2017", "28/1/2017", "11/1/2017", "14/1/2017", "19/1/2017",
-                "17/1/2017", "19/1/2017", "27/1/2017", "20/1/2017", "25/1/2017")
-    
+                "17/1/2017", "19/1/2017", "27/1/2017", "20/1/2017", "25/1/2017")), 
+               stringsAsFactors = FALSE
   )
 
-  
+  ## Genetic distance
   genDum<-data.frame(
     ptId1=rep(paste0("pt",1:10), each=9),
     ptId2=c("pt2","pt3","pt4","pt5","pt6","pt7","pt8","pt9","pt10","pt1","pt3","pt4","pt5","pt6",
@@ -44,41 +125,13 @@ shinyServer(function(input, output, session) {
            0.1,0.05,0.1,0.2,0.3,0.4,0.5,0.55,0.25,0.15,0.05,0.05,0.15,0.25,0.35,0.45,0.5,0.3,
            0.2,0.1,0.05,0.1,0.2,0.3,0.4,0.45,0.4,0.3,0.2,0.15,0.1,0.1,0.2,0.3,0.35,0.5,0.4,0.3,
            0.25,0.2,0.1,0.1,0.2,0.25,0.6,0.5,0.4,0.35,0.3,0.2,0.1,0.1,0.15,0.7,0.6,0.5,0.45,
-           0.4,0.3,0.2,0.1,0.05,0.75,0.65,0.55,0.5,0.45,0.35,0.25,0.15,0.05)
+           0.4,0.3,0.2,0.1,0.05,0.75,0.65,0.55,0.5,0.45,0.35,0.25,0.15,0.05),
+    stringsAsFactors = FALSE
     )
   
+  # Trigger display of variable definition dropdowns when data uploaded
   
-  # Disable tabs
-  ## epi curves and plan until button is pressed
-  observe({
-    toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0 & input$mvmt==TRUE)
-    toggleState(selector="#pan li a[data-value=panEpi]", condition=input$gen!=0)
-    toggleState(selector="#pan li a[data-value=panNet]", condition=input$gen!=0 & input$mvmt==TRUE)
-    toggleState(selector="#pan li a[data-value=panTime]", condition=input$gen!=0 & input$mvmt==TRUE)
-    
-  })
-
-  # Aspect ratio slider
-  output$aspSliderUi<-renderUI({
-    args<-list(inputId="asp", label="Aspect ratio", ticks=c("Wider", "Wider", "Equal", "Taller", "Taller"), 
-               value="2")
-    args$min<-1
-    args$max<-length(args$ticks)
-    if (sessionInfo()$otherPkgs$shiny$Version>="0.11") {
-      ticks <- paste0(args$ticks, collapse=',')
-      args$ticks <- F
-      html  <- do.call('sliderInput', args)
-      html$children[[2]]$attribs[['data-values']] <- ticks;
-    } else {
-      html  <- do.call('sliderInput', args)     
-    }
-    html
-  })
-  
-  # Load data
-  
-  ## Core data
-  
+  ## Core
   coreDatUser<-reactive({
     if(is.null(input$fileCore)){
       return(NULL)
@@ -91,25 +144,8 @@ shinyServer(function(input, output, session) {
     return(!is.null(coreDatUser()))
   })
   outputOptions(output, 'coreFileUploaded', suspendWhenHidden=FALSE)
-  
-  output$mvmtFileUploaded <- reactive({
-    return(!is.null(mvmDatUser()))
-  })
-  outputOptions(output, 'coreFileUploaded', suspendWhenHidden=FALSE)
-  
-  
-  coreDat<-reactive({
-    inFile <- input$fileCore
-    if(is.null(inFile) | input$datrad=="dum"){
-      as.data.frame(coreDum)
-    } else {
-      as.data.frame(read.csv(inFile$datapath, header=T, stringsAsFactors=F))
-    }
-    
-  })
-  
-  ## Ward movements data
-  
+
+  ## Transitions 
   mvmtDatUser<-reactive({
     if(is.null(input$fileMvmt)){
       return(NULL)
@@ -123,25 +159,7 @@ shinyServer(function(input, output, session) {
   })
   outputOptions(output, 'mvmtFileUploaded', suspendWhenHidden=FALSE)
   
-  output$mvmtFileUploaded <- reactive({
-    return(!is.null(mvmtDatUser()))
-  })
-  outputOptions(output, 'mvmtFileUploaded', suspendWhenHidden=FALSE)
-  
-  
-  mvmtDat<-reactive({
-    inFileM <- input$fileMvmt
-    if(is.null(inFileM) | input$datrad=="dum"){
-      as.data.frame(mvmtDum)
-    } else {
-      as.data.frame(read.csv(inFileM$datapath, header=T, stringsAsFactors=F))
-    }
-    
-  })
-  
-  
-  ## Genetic distance data
-  
+  ## Genetic distance 
   genUser<-reactive({
     if(is.null(input$fileGen)){
       return(NULL)
@@ -155,190 +173,206 @@ shinyServer(function(input, output, session) {
   })
   outputOptions(output, 'genFileUploaded', suspendWhenHidden=FALSE)
   
+  # Define data (dummy or user)
   
-  genDat<-reactive({
+  ## Core
+  coreDat<-reactiveValues()
+  
+  coreDat$data<-reactive({
+    inFile <- input$fileCore
+    if(is.null(inFile) | input$datrad=="dum"){
+      as.data.frame(coreDum)
+    } else {
+      as.data.frame(read.csv(inFile$datapath, header=T, stringsAsFactors=F))
+    }
+  })
+  
+  ## Transitions 
+  mvmtDat<-reactiveValues()
+  
+  mvmtDat$data<-reactive({
+    inFileM <- input$fileMvmt
+    if(is.null(inFileM) | input$datrad=="dum"){
+      as.data.frame(mvmtDum)
+    } else {
+      as.data.frame(read.csv(inFileM$datapath, header=T, stringsAsFactors=F))
+    }
+  })
+  
+  ## Genetic distance 
+  genDat<-reactiveValues()
+  
+  genDat$data<-reactive({
     inFileG <- input$fileGen
     if(is.null(inFileG) | input$datrad=="dum"){
       as.data.frame(genDum)
     } else {
       as.data.frame(read.csv(inFileG$datapath, header=T, stringsAsFactors=F))
     }
-    
   })
-  
   
   # Display preview of data
   
-  ## Core data
-  
-  output$previewCore<-renderTable(
+  ## Core 
+  output$previewCore<-renderDataTable(
     if(!(is.null(input$fileCore) & input$datrad=="user")){
-      coreDat()
-      }
+      coreDat$data()
+      }, options=list(paging=FALSE, searching=FALSE)
     )
   
-  ## Movement data
-  
-  output$previewMvmt<-renderTable(
+  ## Transitions 
+  output$previewMvmt<-renderDataTable(
     if(!(is.null(input$fileMvmt) & input$datrad=="user")){
-      mvmtDat()
-    }
+      mvmtDat$data()
+    }, options=list(paging=FALSE, searching=FALSE)
   )
   
-  ## Genetic distance data
+  ## Genetic distance
+  output$previewGen<-renderDataTable(
+    genDat$data(), options=list(paging=FALSE, searching=FALSE))
   
-  output$previewGen<-renderTable({genDat()})
-  
-  # set columns with each data item
+  # Set columns with each data item
   ### if dummy data loaded, select appropriate col
   
-  ## Core data
-  
+  ## Core 
+  ### Patient ID
    output$ptidUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('ptid', label='Unique patient identifier', 
-                     choices=names(coreDat()), selected="ptId")
+                     choices=names(coreDat$data()), selected="ptId")
     } else {
       selectizeInput('ptid', label='Unique patient identifier', 
-                     choices=names(coreDat()),
+                     choices=names(coreDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
   }
   })
-   
    outputOptions(output, 'ptidUi', suspendWhenHidden=FALSE)
-  
+  ### Admission date
    output$admDateUi<-renderUI({
      if(input$datrad=="dum"){
        selectizeInput('admDat', label='Admission date', 
-                      choices=names(coreDat()), selected="admDat")
+                      choices=names(coreDat$data()), selected="admDat")
      } else {
-       selectizeInput('admDat', label='Sample date', 
-                      choices=names(coreDat()),
+       selectizeInput('admDat', label='Admission date', 
+                      choices=names(coreDat$data()),
                       options=list(
                         placeholder="Select variable",
                         onInitialize = I('function() { this.setValue(""); }')))
      }
    })
-   
    outputOptions(output, "admDateUi", suspendWhenHidden = FALSE)
-   
+   ### Sample date
    output$sampledateUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('sampledat', label='Sample date', 
-                     choices=names(coreDat()), selected="samp")
+                     choices=names(coreDat$data()), selected="samp")
     } else {
       selectizeInput('sampledat', label='Sample date', 
-                     choices=names(coreDat()),
+                     choices=names(coreDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
   outputOptions(output, "sampledateUi", suspendWhenHidden = FALSE)
-  
+  ### Sample ward
   output$wardSampUi<-renderUI({
     if(input$datrad=="dum"| is.null(input$fileCore)){
       selectizeInput('wardSamp', label='Ward identifier', 
-                     choices=names(coreDat()), selected="wardSamp")
+                     choices=names(coreDat$data()), selected="wardSamp")
     } else {
       selectizeInput('wardSamp', label='Ward identifier', 
-                     choices=names(coreDat()),
+                     choices=names(coreDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
-  
+  outputOptions(output, "wardSampUi", suspendWhenHidden = FALSE)
+  ### Categorical variables  
   output$catvarUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('catvars', label='Categorical variables (optional)', 
-                     choices=names(coreDat()), selected=c("var1", "var2", "var3"), multiple=T)
+                     choices=names(coreDat$data()), selected=c("var1", "var2", "var3"), multiple=T)
     } else {
       selectizeInput('catvars', label='Categorical variables (optional)', 
-                     choices=names(coreDat()), multiple=T,
+                     choices=names(coreDat$data()), multiple=T,
                      options=list(
                        placeholder="Select one or more variables",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
   outputOptions(output, "catvarUi", suspendWhenHidden = FALSE)
   
-  ## Movement data
- 
+  ## Transitions 
+  ### Patient ID
   output$wardPtUi<-renderUI({
     if(input$datrad=="dum"| is.null(input$fileMvmt)){
       selectizeInput('wardPt', label='Patient identifier', 
-                     choices=names(mvmtDat()), selected="ptId")
+                     choices=names(mvmtDat$data()), selected="ptId")
     } else {
       selectizeInput('wardPt', label='Patient identifier', 
-                     choices=names(mvmtDat()),
+                     choices=names(mvmtDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
   outputOptions(output, 'wardPtUi', suspendWhenHidden=FALSE)
-  
+  ### Ward ID
   output$wardidUi<-renderUI({
     if(input$datrad=="dum"| is.null(input$fileMvmt)){
       selectizeInput('wardid', label='Ward identifier', 
-                     choices=names(mvmtDat()), selected="wardId")
+                     choices=names(mvmtDat$data()), selected="wardId")
     } else {
       selectizeInput('wardid', label='Ward identifier', 
-                     choices=names(mvmtDat()),
+                     choices=names(mvmtDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
   outputOptions(output, 'wardidUi', suspendWhenHidden=FALSE)
-  
-  
+  ### Floor
   output$floorUi<-renderUI({
     if(input$datrad=="dum" | is.null(input$fileMvmt)){
       selectizeInput('floor', label="Floor (optional)",
-                     choices=names(mvmtDat()), selected="floor")
+                     choices=names(mvmtDat$data()), selected="floor")
       
     } else {
       selectizeInput('floor', label="Floor (optional)", 
-                     choices=names(mvmtDat()),
+                     choices=names(mvmtDat$data()),
                      options=list(
                        placeholder="Select variable", 
                        onInitialize = I('function() {this.setValue("");}')
                      ))
     }
-    
   })
   outputOptions(output, "floorUi", suspendWhenHidden = FALSE)
-  
+  ### Day in
   output$dayinUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('dayin', label='Day into ward', 
-                     choices=names(mvmtDat()), selected="dayIn")
+                     choices=names(mvmtDat$data()), selected="dayIn")
     } else {
       selectizeInput('dayin', label='Day into ward', 
-                     choices=names(mvmtDat()),
+                     choices=names(mvmtDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
   outputOptions(output, "dayinUi", suspendWhenHidden = FALSE)
-  
+  ### Day out
   output$dayoutUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('dayout', label='Day out of ward', 
-                     choices=names(mvmtDat()), selected="dayOut")
+                     choices=names(mvmtDat$data()), selected="dayOut")
     } else {
       selectizeInput('dayout', label='Day out of ward', 
-                     choices=names(mvmtDat()),
+                     choices=names(mvmtDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
@@ -346,46 +380,43 @@ shinyServer(function(input, output, session) {
   })
   outputOptions(output, "dayoutUi", suspendWhenHidden = FALSE)
   
-  # Genetic distance data
-  
+  ## Genetic distance
+  ### Patient 1 ID
   output$genPt1Ui<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('genPt1', label='Patient 1 identifier', 
-                     choices=names(genDat()), selected="ptId1")
+                     choices=names(genDat$data()), selected="ptId1")
     } else {
       selectizeInput('genPt1', label='Patient 1 identifier', 
-                     choices=names(genDat()),
+                     choices=names(genDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
   outputOptions(output, "genPt1Ui", suspendWhenHidden = FALSE)
-  
-  
+  ### Patient 2 ID 
   output$genPt2Ui<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('genPt2', label='Patient 2 identifier', 
-                     choices=names(genDat()), selected="ptId2")
+                     choices=names(genDat$data()), selected="ptId2")
     } else {
       selectizeInput('genPt2', label='Patient 2 identifier', 
-                     choices=names(genDat()),
+                     choices=names(genDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
     }
   })
-  
   outputOptions(output, "genPt2Ui", suspendWhenHidden = FALSE)
-  
+  ### pairwise genetic distance
   output$genPtDistUi<-renderUI({
     if(input$datrad=="dum"){
       selectizeInput('genPtDist', label='Genetic distance between patients 1 and 2', 
-                     choices=names(genDat()), selected="dist")
+                     choices=names(genDat$data()), selected="dist")
     } else {
       selectizeInput('genPtDist', label='Genetic distance between patients 1 and 2', 
-                     choices=names(genDat()),
+                     choices=names(genDat$data()),
                      options=list(
                        placeholder="Select variable",
                        onInitialize = I('function() { this.setValue(""); }')))
@@ -394,42 +425,7 @@ shinyServer(function(input, output, session) {
   
   outputOptions(output, "genPtDistUi", suspendWhenHidden = FALSE)
 
- # filter variables 
-
-  output$filVarsUi<-renderUI({
-     if(length(input$catvars)>=1){
-       lapply(c(1:length(input$catvars)), function(i) {
-         selectInput(
-           inputId=paste0("fil",i),
-           label=input$catvars[i], 
-           choices=c(levels(coreDat()[,input$catvars[i]])),
-           selected=levels(coreDat()[,input$catvars[i]]),
-           multiple=T)
-       })
-     }
-  })
-  outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
-  
-  # wards to display in plan
-  output$wardFilUi<-renderUI({
-    if(input$datrad=="dum" | !is.null(input$fileMvmt) & input$mvmt==TRUE){
-      selectInput('wardFil', label="Display wards", 
-                  choices=unique(mvmtDat()[, input$wardid]), 
-                  selected=unique(mvmtDat()[, input$wardid]), 
-                  multiple=T)
-      
-    } else {
-      selectInput('wardFil', label="Display wards", 
-                  choices=unique(coreDat()[, input$wardSamp]), 
-                  selected=unique(coreDat()[, input$wardSamp]),
-                  multiple=T)
-    }
-  })
-  
-
-  outputOptions(output, "wardFilUi", suspendWhenHidden = FALSE)
-  
-  ## update movement and genetic distance checkbox inputs if dummy/ user data loaded
+  # Update checkbox inputs if data loaded
   observe({
     if(input$datrad=="dum"){
       updateCheckboxInput(session, "mvmt", value=TRUE)
@@ -441,18 +437,17 @@ shinyServer(function(input, output, session) {
     }
   })
   
-
-  # validate inputs - generate error messages 
-  
+  # Validate inputs - generate error messages 
+  ## Core
   output$warn<-renderText({
     if(is.null(input$fileCore) & input$datrad=="user"){
       "Please select data"
     } else if((!is.null(input$fileCore)) | input$datrad=="dum"){
       validate(
-        ## Core variables not selected
+        ### Core variables not selected
         need(input$ptid!="" & input$wardSamp!="" & input$admDat!="" &  input$sampledat!="",
              "Please select variables"),
-        ## Core same variable selected for >1 field
+        ### Core same variable selected for >1 field
         if(input$ptid!="" & input$wardSamp!=""  & input$admDat!="" & input$sampledat!=""){
           need(
             anyDuplicated(c(
@@ -462,13 +457,14 @@ shinyServer(function(input, output, session) {
         }
       )
       
+      ## Transitions
       if((input$datrad=="dum" | !is.null(mvmtDatUser())) & input$mvmt==TRUE){
         validate(
-          ## Movement variables not selected
+          ### Movement variables not selected
           need(input$wardPt!="" & input$wardid!="" & input$dayin!="" & input$dayout!="", 
                "Please select patient ward movement variables"),
           
-          ## Movement variable selected for >1 field 
+          ### Movement variable selected for >1 field 
           if(input$wardPt!="" & input$wardid!="" & input$dayin!="" & input$dayout!=""){
             need(
               anyDuplicated(c(
@@ -478,14 +474,14 @@ shinyServer(function(input, output, session) {
         )
       }
       
-      
+      ## Genetic distance
       if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
         validate(
-          ## Genetic distance variables not selected
+          ### Genetic distance variables not selected
           need(input$genPt1!="" & input$genPt2!="" & input$genPtDist!="", 
                "Please select genetic distance variables"),
           
-          ## Genetic distance variable selected for >1 field 
+          ### Genetic distance variable selected for >1 field 
           if(input$genPt1!="" & input$genPt2!="" & input$genPtDist!=""){
             need(
               anyDuplicated(c(
@@ -494,25 +490,19 @@ shinyServer(function(input, output, session) {
           }
         )
       } else { NULL} 
-      
     } else { NULL} 
-    
-
   })
   
-
-  
   # Disable generate plan button if validations not met
-  ## this is ugly but toggleState can only be based on inputs so needs to react directly to the inputs
-  ## rather than eg to a reactive value, as far as I can tell. Anyway it works!
+  ### this is ugly but toggleState can only be based on inputs so needs to react directly to the inputs
+  ### rather than eg to a reactive value, as far as I can tell. Anyway it works!
   
+  ## Core
   observe({
     toggleState("gen", condition=
                   !(is.null(input$fileCore) & input$datrad=="user")
                 )
-    
   })
-  
   observe({
     if((!is.null(input$fileCore)) | input$datrad=="dum"){
       toggleState("gen", condition=
@@ -525,6 +515,7 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  ## Transitions
   observe({
     if((input$datrad=="dum" | !is.null(mvmtDatUser())) & input$mvmt==TRUE){
       toggleState("gen", condition=
@@ -536,6 +527,7 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  ## Genetic distance
   observe({
     if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
       toggleState("gen", condition = 
@@ -546,248 +538,630 @@ shinyServer(function(input, output, session) {
                     )
     }
   })
-
-  # Infection period diagram
-
-  infecTL<-reactive({
-    data.frame(
-      day=c(0, 0-input$sampDel, 0-input$sampDel-input$incMax, 
-            0-input$sampDel-input$incMin, 0-input$sampDel+input$infecLen), 
-      event=c("samp", "symStart", "expStart", "expEnd", "infecEnd"),
-      eventLab=c("Sample \ndate", "Symptoms \nstart", "Max incubation \nperiod", 
-                 "Min incubation \nperiod", "Infectious \nperiod end")
-    )
-  })
-
-  infecPer<-reactive({
-    data.frame(
-    x=c(infecTL()$day[infecTL()$event=="expStart"],
-        infecTL()$day[infecTL()$event=="expStart"],
-        infecTL()$day[infecTL()$event=="expEnd"],
-        infecTL()$day[infecTL()$event=="symStart"],
-        infecTL()$day[infecTL()$event=="symStart"]),
-    xend=c(infecTL()$day[infecTL()$event=="expEnd"],
-           infecTL()$day[infecTL()$event=="expEnd"],
-           infecTL()$day[infecTL()$event=="symStart"],
-           infecTL()$day[infecTL()$event=="samp"],
-           infecTL()$day[infecTL()$event=="infecEnd"]),
-    y=c(0.9,0.8,0.8,0.7,0.6),
-    yend=c(0.9,0.8,0.8,0.7,0.6), 
-    per=c("A","B", "B", "C", "D"), 
-    inc=c("solid", "dotted", "solid", "solid", "solid")
-  )
+  
+  #----------------------------------------
+  # Go button
+  #----------------------------------------
+  
+  # Disable other tabs until go button is pressed
+  observe({
+    toggleState(selector="#pan li a[data-value=panPl]", condition=input$gen!=0 & input$mvmt==TRUE)
+    toggleState(selector="#pan li a[data-value=panEpi]", condition=input$gen!=0)
+    toggleState(selector="#pan li a[data-value=panNet]", condition=input$gen!=0 & input$mvmt==TRUE)
+    toggleState(selector="#pan li a[data-value=panTime]", condition=input$gen!=0 & input$mvmt==TRUE)
   })
   
+  # Observe event - go button 
+  observeEvent({
+    input$gen}, {
+      
+      # Move focus to epicure panel
+      updateTabsetPanel(session, "pan", selected = "panEpi")
 
-
-  infecLabs<-reactive({
-    data.frame(
-      lab=c("Exposure Period", "Incubation period", 
-            "Sample delay", "Infectious period"), 
-      x=c(sum(infecTL()$day[infecTL()$event%in%c("expStart", "expEnd")])/2,
-     #     sum(infecTL()$day[infecTL()$event%in%c("expStart", "symStart")])/2,
-          sum(infecTL()$day[infecTL()$event%in%c("expEnd", "symStart")])/2,
-          sum(infecTL()$day[infecTL()$event%in%c("symStart", "samp")])/2,
-          sum(infecTL()$day[infecTL()$event%in%c("symStart", "infecEnd")])/2), 
-      y=c(0.9,0.8,0.7,0.6)
-    )
-  })
-  
-  
-  
-  output$infecPlot<-renderPlot({
-    validate(need(input$incMax>=input$incMin, 
-                  "Maximum incubation period must not be shorter than minimum inubation period"))
-    
-    ggplot()+
-      geom_segment(data=infecTL(), aes(x=min(infecTL()$day), xend=max(infecTL()$day), y=1, yend=1))+
-      geom_label_repel(data=infecTL(), aes(x=day, y=1, label=eventLab), nudge_y = 0.1)+
-      geom_segment(data=infecPer(), aes(x=x, y=y, xend=xend, yend=yend, col=per, linetype=inc), size=2)+
-      scale_color_manual(values=c("#FF7F00", "#FFFFBF", "black", "#33A02C"), 
-                         breaks=levels(infecPer()$per),
-                         name="", guide=FALSE)+
-      scale_linetype_identity(guide=F)+
-      geom_text(data=infecLabs(), aes(x=x, y=y, label=lab), nudge_y=0.05)+
-      scale_y_continuous(limits=c(0.5,1.2), expand=c(0,0))+
-      scale_x_continuous(limits=c(infecTL()$day[infecTL()$event=="expStart"]-0.7, 
-           infecTL()$day[infecTL()$event=="infecEnd"]+0.5), expand=c(0,0))+
-      theme_void()+
-      theme(
-        axis.ticks.length = unit(c(0,0),"inches"),
-        panel.background = element_rect(fill = '#F0F0F0', colour = "white", size=1))
+      # Rename and format variables for assigned columns
+      ## Core 
+      coreDat$coreDatNam<-coreDat$data()
+      colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$ptid)]<-"ptId"
+      colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$admDat)]<-"admDat"
+      colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$sampledat)]<-"samp"  
+      colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$wardSamp)]<-"wardSamp"  
       
-  })
-  
-
-# Observer - 'generate plan' button or 'update' button
-  
-    observeEvent({
-      input$goagain
-      input$gen}, {
-      
-      # rename and format the variables in dat for assigned cols 
-      
-      ## Core data 
-        
-      coreDatNam<-coreDat()
-      colnames(coreDatNam)[which(colnames(coreDatNam)==input$ptid)]<-"ptId"
-      colnames(coreDatNam)[which(colnames(coreDatNam)==input$admDat)]<-"admDat"
-      colnames(coreDatNam)[which(colnames(coreDatNam)==input$sampledat)]<-"samp"  
-      colnames(coreDatNam)[which(colnames(coreDatNam)==input$wardSamp)]<-"wardSamp"  
-      
-      coreDatNam$admDat<-dmy(coreDatNam$admDat)
-      coreDatNam$samp<-dmy(coreDatNam$samp)
-      coreDatNam$wardSamp<-as.factor(coreDatNam$wardSamp)
+      coreDat$coreDatNam$admDat<-ymd(coreDat$coreDatNam$admDat)
+      coreDat$coreDatNam$samp<-ymd(coreDat$coreDatNam$samp)
+      coreDat$coreDatNam$wardSamp<-as.factor(coreDat$coreDatNam$wardSamp)
       
       if(length(input$catvars)>=1){
         lapply(input$catvars, function(i){
-          coreDatNam[,i]<<-as.factor(coreDatNam[,i])
+          coreDat$coreDatNam[is.na(coreDat$coreDatNam[,i]),i]<<-"NA"
+          coreDat$coreDatNam[,i]<<-as.factor(coreDat$coreDatNam[,i])
         })
       }
-        
-      ## Movement data  
-        
-      datNamA<-mvmtDat()
-      colnames(datNamA)[which(colnames(datNamA)==input$wardPt)]<-"ptId"
-      colnames(datNamA)[which(colnames(datNamA)==input$wardid)]<-"wardId" 
-      colnames(datNamA)[which(colnames(datNamA)==input$floor)]<-"floor"
-      colnames(datNamA)[which(colnames(datNamA)==input$dayin)]<-"dayIn"  
-      colnames(datNamA)[which(colnames(datNamA)==input$dayout)]<-"dayOut"  
-
-      datNamA$dayIn<-dmy(datNamA$dayIn)
-      datNamA$dayOut<-dmy(datNamA$dayOut)
-    
-      datNamA$wardId<-as.factor(datNamA$wardId)
       
-      ## Genetic distance data 
+      ## Transitions   
+      mvmtDat$datNam<-mvmtDat$data()
+      colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$wardPt)]<-"ptId"
+      colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$wardid)]<-"wardId" 
+      colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$floor)]<-"floor"
+      colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$dayin)]<-"dayIn"  
+      colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$dayout)]<-"dayOut"  
       
-      genDatNam<-genDat()
-      colnames(genDatNam)[which(colnames(genDatNam)==input$genPt1)]<-"ptId1"
-      colnames(genDatNam)[which(colnames(genDatNam)==input$genPt2)]<-"ptId2"
-      colnames(genDatNam)[which(colnames(genDatNam)==input$genPtDist)]<-"dist"
+      mvmtDat$datNam$dayIn<-ymd(mvmtDat$datNam$dayIn)
+      mvmtDat$datNam$dayOut<-ymd(mvmtDat$datNam$dayOut)
+      mvmtDat$datNam$wardId<-as.factor(mvmtDat$datNam$wardId)
+      
+      ## Genetic distance 
+      genDat$genDatNam<-genDat$data()
+      colnames(genDat$genDatNam)[which(colnames(genDat$genDatNam)==input$genPt1)]<-"ptId1"
+      colnames(genDat$genDatNam)[which(colnames(genDat$genDatNam)==input$genPt2)]<-"ptId2"
+      colnames(genDat$genDatNam)[which(colnames(genDat$genDatNam)==input$genPtDist)]<-"dist"
       
       # Join core data to movement data
-      datNam<-
-        left_join(datNamA, coreDatNam[c("ptId", "samp", input$catvars)], by="ptId")
-        
+      mvmtDat$datNam<-
+        left_join(mvmtDat$datNam, coreDat$coreDatNam[c("ptId", "samp", "admDat", input$catvars)], by="ptId")
+      
       # Format pt id as factor
+      coreDat$coreDatNam$ptId<-as.factor(coreDat$coreDatNam$ptId)
+      mvmtDat$datNam$ptId<-as.factor(mvmtDat$datNam$ptId)
       
-      coreDatNam$ptId<-as.factor(coreDatNam$ptId)
-      datNam$ptId<-as.factor(datNam$ptId)
-            
-
       # Exclude wards not selected
+      validate(need(nrow(mvmtDat$datNam)>=1, "No wards selected"))
       
-      datNam<-datNam[which(datNam[,input$wardid]%in%input$wardFil),]
-      coreDatNam<-coreDatNam[which(coreDatNam[,input$wardSamp]%in%input$wardFil),] 
-      validate(need(nrow(datNam)>=1, "No wards selected"))
+      # Update inputs in visualisation tabs
+      ## Epidemic curve
+      ### patient characteristics - colour dropdown
+      updateSelectizeInput(session, "plEpi", choices=c(
+        "Place acquired" = "acqEpi",
+        "ward sampled" = "wardSamp",
+        input$catvars))
       
-      if(input$mvmt==T){
+      ### patient characteristics - filter
+      output$filVarsEpiUi<-renderUI({
+        if(length(input$catvars)>=1){
+          lapply(c(1:length(input$catvars)), function(i) {
+            selectInput(
+              inputId=paste0("filEpi",i),
+              label=input$catvars[i], 
+              choices=c(levels(coreDat$coreDatNam[,input$catvars[i]])),
+              selected=levels(coreDat$coreDatNam[,input$catvars[i]]),
+              multiple=T)
+          })
+        }
+      })
+      outputOptions(output, "filVarsEpiUi", suspendWhenHidden = FALSE)
       
-      # set up ui in 'plan' tab
-      ## Day slider
+      ### wards to include - filter
+      output$wardEpiUi<-renderUI({
+        selectInput("wardEpi", label="Include wards", 
+                    choices=unique(coreDat$coreDatNam$wardSamp), 
+                    selected=unique(coreDat$coreDatNam$wardSamp), 
+                    multiple=T)
+      })
+      outputOptions(output, "wardEpiUi", suspendWhenHidden = FALSE)
+
+      ### start and end dates for epi curve
+      output$epidatesUi<-renderUI({
+        dateRangeInput("epidates", label="Dates", min=min(coreDat$coreDatNam$samp), max=max(coreDat$coreDatNam$samp),
+                       start=min(coreDat$coreDatNam$samp), end=max(coreDat$coreDatNam$samp))
+      })
       
+      ## Timeline
+      ### patient ids
+      output$filIDTimeUi<-renderUI({
+        selectInput("ptIdTime", label="Patient IDs to inlucde", 
+                    choices=unique(coreDat$coreDatNam$ptId), 
+                    selected=unique(coreDat$coreDatNam$ptId), 
+                    multiple=T)
+      })
+      outputOptions(output, "filIDTimeUi", suspendWhenHidden = FALSE)
+      
+      ### categorical vars
+      output$filVarsTimeUi<-renderUI({
+        if(length(input$catvars)>=1){
+          lapply(c(1:length(input$catvars)), function(i) {
+            selectInput(
+              inputId=paste0("filTime",i),
+              label=input$catvars[i], 
+              choices=c(levels(coreDat$coreDatNam[,input$catvars[i]])),
+              selected=levels(coreDat$coreDatNam[,input$catvars[i]]),
+              multiple=T)
+          })
+        }
+      })
+      outputOptions(output, "filVarsTimeUi", suspendWhenHidden = FALSE)
+      
+      ### wards 
+      output$wardFilTimeUi<-renderUI({
+        if(input$datrad=="dum" | !is.null(input$fileMvmt) & input$mvmt==TRUE){
+          selectInput('wardFilTime', label="Select wards", 
+                      choices=unique(mvmtDat$data()[, input$wardid]), 
+                      selected=unique(mvmtDat$data()[, input$wardid]), 
+                      multiple=T)
+          
+        } else {
+          selectInput('wardFilTime', label="Select wards", 
+                      choices=unique(coreDat$coreDatNam$wardSamp), 
+                      selected=unique(coreDat$coreDatNam$wardSamp),
+                      multiple=T)
+        }
+      })
+      outputOptions(output, "wardFilTimeUi", suspendWhenHidden = FALSE)
+      
+      ### Colour characteristics
+      updateSelectizeInput(session, "plTime", choices=c(
+        "Ward" = "ward",
+        "Infection period" = "infec"), selected="ward")
+      
+      ## Plan
+      ### Wards to display in plan
+      output$wardFilUi<-renderUI({
+        if(input$datrad=="dum" | !is.null(input$fileMvmt) & input$mvmt==TRUE){
+          selectInput('wardFil', label="Display wards", 
+                      choices=unique(mvmtDat$data()[, input$wardid]), 
+                      selected=unique(mvmtDat$data()[, input$wardid]), 
+                      multiple=T)
+        } 
+      })
+      outputOptions(output, "wardFilUi", suspendWhenHidden = FALSE)
+      ### Aspect ratio slider
+      output$aspSliderUi<-renderUI({
+        args<-list(inputId="asp", label="Ward shape", ticks=c("Wider", "Wider", "Equal", "Taller", "Taller"), 
+                   value="2")
+        args$min<-1
+        args$max<-length(args$ticks)
+        if (sessionInfo()$otherPkgs$shiny$Version>="0.11") {
+          ticks <- paste0(args$ticks, collapse=',')
+          args$ticks <- F
+          html  <- do.call('sliderInput', args)
+          html$children[[2]]$attribs[['data-values']] <- ticks;
+        } else {
+          html  <- do.call('sliderInput', args)     
+        }
+        html
+      })
+      outputOptions(output, 'aspSliderUi', suspendWhenHidden=FALSE)
+      
+      ### Day slider
       output$dayUi<-renderUI({
         dateInput('day', label = 'Day', 
-                    min=min(datNam$dayIn), max=max(datNam$dayIn),
-                    value=min(datNam$dayIn)) 
+                  min=min(mvmtDat$datNam$dayIn), max=max(mvmtDat$datNam$dayIn),
+                  value=min(mvmtDat$datNam$dayIn)) 
       })
-      
-      ## patient ids
+      ### patient ids
       output$ptidFilUi<-renderUI({
         selectInput("ptId", label="Patient ID",
-                    choices=unique(datNam$ptId),
-                    selected=unique(datNam$ptId),
+                    choices=unique(mvmtDat$datNam$ptId),
+                    selected=unique(mvmtDat$datNam$ptId),
                     multiple=T)
-        
       })
-      
       outputOptions(output, 'ptidFilUi', suspendWhenHidden=FALSE)
-      
-      ## Colour characteristics
+      ### Colour characteristics
       updateSelectizeInput(session, "pl", choices=c(
         "Patient ID" = "ptId",
         "Infection period" = "infec", 
         "Place acquired" = "acq",
-        input$catvars), selected="ptId")
-      
-      
-      ## Filter variables
+        input$catvars), selected="infec")
+      ### Filter variables
+      output$filVarsUi<-renderUI({
+        if(length(input$catvars)>=1){
+          lapply(c(1:length(input$catvars)), function(i) {
+            selectInput(
+              inputId=paste0("fil",i),
+              label=input$catvars[i], 
+              choices=c(levels(coreDat$coreDatNam[,input$catvars[i]])),
+              selected=levels(coreDat$coreDatNam[,input$catvars[i]]),
+              multiple=T)
+          })
+        }
+      })
+      outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
       if(length(input$catvars)>=1){
         lapply(c(1:length(input$catvars)), function(i){
           updateSelectInput(session, paste0("fil",i),
-                            choices=levels(coreDatNam[,input$catvars[i]]),
-                            selected=levels(coreDatNam[,input$catvars[i]]))
+                            choices=levels(coreDat$coreDatNam[,input$catvars[i]]),
+                            selected=levels(coreDat$coreDatNam[,input$catvars[i]]))
         })
       }
-      
-      ## Genetic distance (if used)
-      
-      ###  Add option to colour points by genetic dist and option to view gen dist links
-      
+      ### Genetic distance (if used) 
       if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-        
+        #### Colour points option
         updateCheckboxGroupInput(session, "planOpts",
                                  choices=c(
                                    "Ward labels" = "wardLabShow", 
                                    "Epidemiological links" = "lnk", 
                                    "Genetic links" = "lnkGen",
-                                   "Colour by patient characteristics" = "colByVar"), selected="colByVar"
+                                   "Colour by patient characteristics" = "colByVar")
         ) 
- 
         updateSelectizeInput(session, "pl", choices=c(
-          "Patient ID" = "ptId",
           "Infection period" = "infec", 
+          "Patient ID" = "ptId",
           "Place acquired" = "acq",
           "Genetic distance" = "gendis",
           input$catvars
         ))
-   
-
-      ### index case
-      output$genDIndexUi<-renderUI({
-        selectInput("genDIndex", label="Genetic distance index case", 
-                    choices=unique(datNam$ptId), 
-                    selected=unique(datNam$ptId)[1])
-      })
-      
-      outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
-     
-      ### genetic distance cutoff
-      output$genDistUi<-renderUI({
-        sliderInput('genDist', label= 'Genetic distance', 
-                    min=min(genDatNam[,'dist']), max=max(genDatNam[,'dist']), 
-                    value=min(genDatNam[,'dist']))
-      })
-      outputOptions(output, 'genDistUi', suspendWhenHidden=FALSE)
+        #### index case
+        output$genDIndexUi<-renderUI({
+          selectInput("genDIndex", label="Genetic distance index case", 
+                      choices=unique(mvmtDat$datNam$ptId), 
+                      selected=unique(mvmtDat$datNam$ptId)[1])
+        })
+        outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
+        #### genetic distance cutoff
+        output$genDistUi<-renderUI({
+          sliderInput('genDist', label= 'Genetic distance', 
+                      min=min(genDat$genDatNam[,'dist']), max=max(genDat$genDatNam[,'dist']), 
+                      value=min(genDat$genDatNam[,'dist']))
+        })
+        outputOptions(output, 'genDistUi', suspendWhenHidden=FALSE)
       }
       
+      ## Network
+      ### Patient ids
+      output$filVarsNetUi<-renderUI({
+        selectInput("ptIdNet", label="Patient IDs to inlucde", 
+                    choices=unique(mvmtDat$datNam$ptId), 
+                    selected=unique(mvmtDat$datNam$ptId), 
+                    multiple=T)
+      })
+      outputOptions(output, "filVarsNetUi", suspendWhenHidden = FALSE)
+    })
+      
+  #----------------------------------------
+  # Epidemic curve tab
+  #----------------------------------------
+  
+  # Trigger for updating plot
+  epiTrig<-reactive({
+    paste(input$goEpi, input$pan=="panEpi")
+  })
+  
+  # Bar width
+  brks<-eventReactive(epiTrig(),{
+    validate(need(!is.na(input$binwid), "Please select bar width"))
+    if(length(input$epidates)!=2){
+      validate(need(!is.na(input$binwid), "Please select bar width"))
+      brks1<-seq(min(coreDat$coreDatNam$samp), max(coreDat$coreDatNam$samp), input$binwid)
+      while(max(brks1)<max(coreDat$coreDatNam$samp)){
+        brks1<-c(brks1, max(brks1)+input$binwid)
+      }
+      if(length(brks1)==1){
+        brks1<-c(brks1, brks1+input$binwid)
+      }
+      brks1
+    } else {
+      validate(need(!is.na(input$binwid), "Please select bar width"))
+      brks1<-seq(input$epidates[1], input$epidates[2], input$binwid)
+      while(max(brks1)<input$epidates[2]){
+        brks1<-c(brks1, max(brks1)+input$binwid)
+        if(length(brks1)==1){
+          brks1<-c(brks1, brks1+input$binwid)
+        }
+      }
+      brks1
+    }
+  })
+
+  # Epidemic curve data  
+  datEpi<-eventReactive(epiTrig(),{
+    datEpi1<-coreDat$coreDatNam
+    datEpi1<-
+      datEpi1 %>%
+      mutate(acqEpi=ifelse(samp-admDat>=input$hospAcqLenEpi, "Hospital", "Community")) 
+    datEpi1$acqEpi<-factor(datEpi1$acqEpi, levels=c("Hospital", "Community")) 
     
-      # Set up schematic plan
+    datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
 
-      ## giving each person a unique position on the ward
-      ## therefore, maxCases is the max no patients in ward ever
+    if(length(input$epidates)!=2 & input$colByVarEpi==FALSE){
       
-      maxCases<-
-        max(
-          datNam %>%
-            group_by(wardId) %>%
-            count() %>%
-            pull(n)
-          )
+      datEpi1$colEpi<-"#3c8dbc"
       
+    } else {
+      datEpi1<-
+        datEpi1 %>%
+        arrange(datEpi1[,input$plEpi])
       
-     
-
-        ## Aspect ratio of wards  - initially equal
-        aspTab<-data.frame(
-          asp=c(0,1,2,3,4),
-          wid=c(6,5,4,3,2),
-          ht=c(2,3,4,5,6)
+      if(input$colByVarEpi==FALSE){
+        datEpi1$colEpi<-"#3c8dbc"
+        
+      } else if(input$plEpi=="acqEpi"){
+        cols<-brewer.pal(3, "Set1")[1:2]
+        factpal<-colorFactor(cols, datEpi1$acqEpi)
+        datEpi1$colEpi<-factpal(datEpi1$acqEpi)
+      } else if(input$plEpi!=""){
+        suppressWarnings(
+          colRamp<-colorRampPalette(brewer.pal(length(levels(datEpi1[,input$plEpi])), "Set1"))
         )
-        
-        ## Regenerate the plan if aspect ratio is changed
-        
+        cols<-colRamp(length(levels(datEpi1[,input$plEpi])))
+        factpal <- colorFactor(cols, datEpi1[,input$plEpi])
+        datEpi1$colEpi<- factpal(datEpi1[,input$plEpi])
+      }
+      
+    }
+    as.data.frame(datEpi1)
+  })
+  
+  # Filtered epidemic curve data
+  datEpiFil<-eventReactive(epiTrig(),{
+    datEpiFil1<-datEpi()
+    
+    if(length(input$epidates)!=2){         
+      datEpiFil1
+    } else {
+      
+      datEpiFil1<-
+        datEpiFil1 %>%
+        filter(samp>=input$epidates[1] & samp<=input$epidates[2]) %>%
+        filter(acqEpi%in%input$acqFilEPi) %>%
+        filter(wardSamp%in%input$wardEpi)
+      
+      if(length(input$catvars>=1)){
+        filGrps<-lapply(1:length(input$catvars), function(j){
+          datEpiFil1[,input$catvars[j]]%in%input[[paste0("filEpi",j)]]           
+        })
+        filGrps<-Reduce("&", filGrps)  
+        datEpiFil1<-datEpiFil1[which(filGrps),]
+      }
+      datEpiFil1
+    } 
+  })
+
+  # Reactives for plot parameters 
+  colByVarEpi<-eventReactive(epiTrig(),{input$colByVarEpi})
+  xbrks<-eventReactive(epiTrig(),{input$xbrks})
+  xlabs<-eventReactive(epiTrig(),{input$xlabs})
+  vertLab<-eventReactive(epiTrig(),{input$vertLab})
+  plEpi<-eventReactive(epiTrig(),{input$plEpi})
+  plWid<-eventReactive(epiTrig(),{input$plWid})
+  plHt<-eventReactive(epiTrig(),{input$plHt})
+  
+  # Generate plot 
+  output$epiplotAll<-renderPlot({
+    validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
+    epiymax<-max(datEpiFil()%>%
+                   group_by(grpTot) %>%
+                   summarise(tot=n()) %>%
+                   ungroup() %>%
+                   select(tot))
+    
+    if(colByVarEpi()==FALSE){
+      ggplot(datEpiFil())+
+        geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
+        scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
+                     date_breaks=xbrks(), date_labels=xlabs()
+        )+
+        scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
+        geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
+                                     y=1:epiymax, yend=1:epiymax), 
+                     aes(x=x, xend=xend, y=y, yend=yend),
+                     col="white")+
+        theme(
+          legend.position="none",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title.x=element_text(),
+          axis.title.y=element_text(),
+          axis.text.x=element_text(angle=ifelse(vertLab()==TRUE, 90, 0), 
+                                   vjust=ifelse(vertLab()==TRUE, 0.2, 0)),
+          panel.background = element_rect(fill=NA, colour="black"))+
+        labs(x="Sample date", y="Count")
+      
+    } else {
+      ggplot(datEpiFil())+
+        geom_histogram(aes(x=samp, fill=datEpiFil()[,plEpi()]), breaks=as.numeric(brks()), col="white", closed="left")+
+        scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
+        scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
+        scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
+                     date_breaks=xbrks(), date_labels=xlabs()
+        )+
+        geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
+                                     y=1:epiymax, yend=1:epiymax), 
+                     aes(x=x, xend=xend, y=y, yend=yend),
+                     col="white")+
+        theme(
+          legend.position="bottom",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title.x=element_text(),
+          axis.title.y=element_text(),
+          axis.text.x=element_text(angle=ifelse(vertLab()==TRUE, 90, 0), 
+                                   vjust=ifelse(vertLab()==TRUE, 0.2, 0)),
+          panel.background = element_rect(fill=NA, colour="black"))+
+        labs(x="Sample date", y="Count")
+    }
+  }, width=exprToFunction(plWid()), height=exprToFunction(plHt()))
+  
+  #----------------------------------------
+  # Timeline tab
+  #----------------------------------------
+  
+  # Trigger for updating plot
+  timeTrig<-reactive({
+    paste(input$goTime, input$pan=="panTime")
+  })
+  
+  # Timeline data 
+  datTime<-eventReactive(timeTrig(),{
+    datTime1<-as.data.frame(mvmtDat$datNam)
+    datTime1$symStart<-datTime1$samp-input$sampDelTime
+    datTime1$expStart<-datTime1$symStart-input$incMaxTime
+    datTime1$expEnd<-datTime1$symStart-input$incMinTime
+    datTime1$infecEnd<-datTime1$symStart+input$infecLenTime
+    datTime1<-datTime1[datTime1$ptId%in%input$ptIdTime,]
+
+    ## filter by categorical inputs
+    if(length(input$catvars>=1)){
+      filGrps<-lapply(1:length(input$catvars), function(j){
+        datTime1[,input$catvars[j]]%in%input[[paste0("filTime",j)]]           
+      })
+      filGrps<-Reduce("&", filGrps)  
+      datTime1<-datTime1[which(filGrps),]
+    }
+    
+    ## filter by selected wards and patient IDs
+    if(!(length(input$ptIdTime)>=1 & length(input$wardFilTime>=1))){
+      datTime1
+    } else {
+      datTime1<-
+        datTime1 %>%
+        filter(ptId %in% 
+                 (datTime1 %>%
+                    filter(wardId %in% input$wardFilTime)%>%
+                    distinct(ptId) %>% pull(ptId)
+                 ))
+      ## assign colours
+      ### colour by ward
+      if(input$plTime=="ward"){
+        suppressWarnings(
+          colRampT<-colorRampPalette(brewer.pal(length(levels(datTime1$wardId)), "Set1"))
+        )
+        colsT<-colRampT(length(levels(datTime1$wardId)))
+        factpalT <- colorFactor(colsT, datTime1$wardId)
+        datTime1$col<- factpalT(datTime1$wardId)
+        #### format data for display with timeline package
+        if (nrow(datTime1)>=1){
+          datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
+          datTime1<-
+            datTime1 %>%
+            rename(group=ptId, start=dayIn, end=dayOut, content=wardId) %>%
+            mutate(type="range") %>%
+            select(group, content, start, end, style, type, admDat, samp) 
+        }
+        ### colour by infection period
+      } else if(input$plTime=="infec"){
+        datTime1<-
+          datTime1 %>% 
+          group_by(ptId) %>%
+          mutate(adm=min(dayIn), dis=max(dayOut)) %>%
+          distinct(ptId, adm, dis, symStart, expStart, expEnd, infecEnd, admDat, samp)
+        #### truncate infection periods at admission.. 
+        datTime1$symStart[datTime1$symStart<datTime1$adm]<-datTime1$adm[datTime1$symStart<datTime1$adm]
+        datTime1$expStart[datTime1$expStart<datTime1$adm]<-datTime1$adm[datTime1$expStart<datTime1$adm]
+        datTime1$expEnd[datTime1$expEnd<datTime1$adm]<-datTime1$adm[datTime1$expEnd<datTime1$adm]
+        datTime1$infecEnd[datTime1$infecEnd<datTime1$adm]<-datTime1$adm[datTime1$infecEnd<datTime1$adm]
+        #### ... and discharge dates
+        datTime1$symStart[datTime1$symStart>datTime1$dis]<-datTime1$dis[datTime1$symStart>datTime1$dis]
+        datTime1$expStart[datTime1$expStart>datTime1$dis]<-datTime1$dis[datTime1$expStart>datTime1$dis]
+        datTime1$expEnd[datTime1$expEnd>datTime1$dis]<-datTime1$dis[datTime1$expEnd>datTime1$dis]
+        datTime1$infecEnd[datTime1$infecEnd>datTime1$dis]<-datTime1$dis[datTime1$infecEnd>datTime1$dis]
+        #### structure data by infection period
+        datTime1<-
+          data.frame(
+            ptId=rep(datTime1$ptId, 5),
+            admDat=rep(datTime1$admDat, 5),
+            samp=rep(datTime1$samp, 5),
+            per=rep(c("PreExposure", "Exposure", "Incubation", "Infectious", "PostInfectious"),
+                    each= length(unique(datTime1$ptId))), 
+            start=c(datTime1$adm, datTime1$expStart, datTime1$expEnd, datTime1$symStart, datTime1$infecEnd), 
+            end=c(datTime1$expStart, datTime1$expEnd, datTime1$symStart, datTime1$infecEnd, datTime1$dis)
+          ) %>% arrange(ptId)
+        #### generate colours
+        datTime1$per<-factor(datTime1$per, 
+                             levels=c("PreExposure", "Exposure", "Incubation", 
+                                      "Infectious", "PostInfectious"))
+        colsT<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
+                 brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
+        )
+        factpalT<-colorFactor(colsT, datTime1$per)
+        datTime1$col<-factpalT(datTime1$per)
+        #### format data for display with timeline package
+        if (nrow(datTime1)>=1){
+          datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
+          
+          datTime1<-
+            datTime1 %>%
+            rename(group=ptId, start=start, end=end, content=per) %>%
+            mutate(type="range") %>%
+            select(group, content, start, end, style, type, admDat, samp) 
+        }
+      }
+      ## order by admission or sample dates
+      if(input$orderTL=="admTL"){
+        datTime1<-
+          arrange(datTime1, admDat)
+      }
+      if(input$orderTL=="sampTL"){
+        datTime1<-
+          arrange(datTime1, samp)
+      }
+      ## add labels
+      if(input$timeLab==TRUE){
+        datTime1
+      } else {
+        datTime1$content=""
+        datTime1
+      }
+    }
+  })
+  
+  # Sample dates
+  datTLSamp<-eventReactive(timeTrig(),{
+    datTLSamp1<-as.data.frame(datTime())
+    datTLSamp1 %>%
+      distinct(group, samp) %>%
+      rename(start=samp) %>%
+      mutate(content="", end=NA, style=NA, type="point", id=paste0("sampl", 1:n()))
+  })
+  
+  # Groups for time line
+  tGrp<-eventReactive(timeTrig(),{
+    if(input$timeLab==TRUE){
+      data.frame(
+        id=unique(datTime()$group),
+        content=unique(datTime()$group)
+      )
+    } else {
+      data.frame(
+        id=unique(datTime()$group),
+        content=unique(datTime()$group)
+      )
+    } 
+  })
+  
+  # Reactives for plot parameters 
+  incMaxTime<-eventReactive(timeTrig(),{input$incMaxTime})
+  incMinTime<-eventReactive(timeTrig(),{input$incMinTime})
+  ptIdTime<-eventReactive(timeTrig(),{input$ptIdTime})
+  wardFilTime<-eventReactive(timeTrig(),{input$wardFilTime})
+  sampDat<-eventReactive(timeTrig(),{input$sampDat})
+  
+  # Generate plot
+  output$tl<-renderTimevis({
+    validate(need(nrow(datTime())>=1, "No data selected - check filters"))
+    validate(need(incMaxTime()>=incMinTime(), 
+                  "Maximum incubation period must not be shorter than minimum inubation period"))
+    validate(need(length(ptIdTime())>=1 & length(input$wardFilTime)>=1, "No data selected - check filters"))
+    validate(need(nrow(datTime()[datTime()$ptId%in%ptIdTime() &
+                                   datTime()$wardSamp%in%wardFilTime(),])<1, 
+                  "No data selected - check filters"))
+    timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE)) %>%
+      addItems(data=datTLSamp())
+  })
+  
+  #----------------------------------------
+  # Plan tab
+  #----------------------------------------
+  
+  # Trigger for updating plot
+  plTrig<-reactive({
+    paste(input$goPl, input$pan=="panPl")
+  })
+  
+  # Reactives for plot  
+  asp<-eventReactive(plTrig(),{input$asp})
+
+  # Set up background plan and add coordinates to data
+  ## Reactive values - plan parameters 
+  planParams<-reactiveValues()
+  observeEvent({
+    input$goPl
+    input$gen}, {
+      if(input$mvmt==TRUE){
+        ## Aspect ratio of ward 
+        aspTab<-
+          data.frame(
+            asp=c(0,1,2,3,4),
+            wid=c(6,5,4,3,2),
+            ht=c(2,3,4,5,6))
+        ## Set ward width and height based on aspect ratio    
         if(is.null(input$asp)){
           wardWid<-aspTab$wid[aspTab$asp==2]
           wardHt<-aspTab$ht[aspTab$asp==2]
@@ -795,91 +1169,54 @@ shinyServer(function(input, output, session) {
           wardWid<-aspTab$wid[aspTab$asp==input$asp]
           wardHt<-aspTab$ht[aspTab$asp==input$asp]
         }
-        
-        
-        ## Coordinates of ward plan
-        
-        ### Floors
-        
-        ### calculate number of floors (2 per row if floors not provided)
-        
+        ## Filter by wards selected
+        if(input$gen+input$goPl==1){
+          mvmtDat$datNamCoord<-
+            mvmtDat$datNam
+          plan<-mvmtDat$datNam
+
+        } else {
+          mvmtDat$datNamCoord<-
+            mvmtDat$datNam %>%
+            mutate(wardName=as.character(wardId))%>%
+            filter(wardName%in%input$wardFil)
+          plan<-mvmtDat$datNam %>%
+            mutate(wardNam=as.character(wardId)) %>%
+            filter(wardNam%in%input$wardFil)
+        }
+        validate(need(nrow(plan)>=1, "No wards selected"))
+        ## Max number of cases in selected wards
+        maxCases<-
+          max(
+            mvmtDat$datNamCoord %>%
+              group_by(wardId) %>%
+              count() %>%
+              pull(n)
+          )
+        ## Number of floors in plan
+        ### add dummy floors to transitions data if no floors are given
         if(input$floor==""){
           flrs<-data.frame(
-            wardId=unique(datNam$wardId),
-            nFloor=rep(1:round(length(unique(datNam$wardId))/2),each=2)[1:length(unique(datNam$wardId))]
+            wardId=unique(plan$wardId),
+            nFloor=rep(1:round(length(unique(plan$wardId))/2),each=2)[1:length(unique(plan$wardId))]
           )
-          datNam<-
-            left_join(datNam, flrs, by="wardId")
-          
+          plan<-
+            left_join(plan, flrs, by="wardId")
         } else {
-          datNam$nFloor<-NA
-          datNam<-datNam[with(datNam, order(floor)),]
-          flrs<-seq(1:length(unique(datNam$floor)))
-          lapply(1:length(unique(datNam$floor)), function(i){
+          plan$nFloor<-NA
+          plan<-plan[with(plan, order(floor)),]
+          flrs<-seq(1:length(unique(plan$floor)))
+          lapply(1:length(unique(plan$floor)), function(i){
             j<-flrs[i]
-            k<-unique(datNam$floor)[i]
-            datNam$nFloor[datNam$floor==k]<<-j
+            k<-unique(plan$floor)[i]
+            plan$nFloor[plan$floor==k]<<-j
           })
         }
-
-        plan <-
-          datNam %>%
-          select(wardId, nFloor) %>%
-          distinct() %>%
-          arrange(nFloor)
-
-        plan$id<-seq(1:nrow(plan))
-        
-        ### Wards 
-        wardIdLookUp<-data.frame(
-          id=plan$id,
-          wardId=plan$wardId
-          )
-
-        plan<-
-          plan %>%
-          group_by(nFloor) %>%
-          mutate(totWard=length(id)) %>%
-          mutate(nWard=seq(1:length(id))) %>%
-          mutate(xMin=(nWard*wardWid)-wardWid+0.2) %>%
-          mutate(xMax=nWard*wardWid)
-        
-        plan<-
-          plan %>%
-          mutate(yMin=(nFloor*wardHt)-wardHt+0.2) %>%
-          mutate(yMax=nFloor*wardHt) %>%
-          mutate(x1=xMin) %>%
-          mutate(x2=xMin) %>%
-          mutate(x3=xMax) %>%
-          mutate(x4=xMax) %>%
-          mutate(y1=yMin) %>%
-          mutate(y2=yMax) %>%
-          mutate(y3=yMax) %>%
-          mutate(y4=yMin) %>%
-          mutate(xMid=(xMin+xMax)/2) %>%
-          mutate(yMid=(yMin+yMax)/2)
-        
-        ## Convert coordinates to polygons for plotting
-        pol <-
-          gather(data=plan[,c("id", "x1", "x2", "x3", "x4")], key=coord, value=x, x1:x4)
-        
-        pol<-cbind(
-          pol,
-          gather(data=plan[,c("id", "y1", "y2", "y3", "y4")], key=coord, value=y, y1:y4)
-        )
-        
-        pol<-pol[,c("id","x","y")]
-        pol<-arrange(pol, id)
-      
-        
-        ## Coorindates that points can go into
-        
-        ## how many rows and cols per ward
+        ## Calculate number of rows and cols in ward
         nCols<-round(sqrt(maxCases*(wardWid/wardHt)))
         nRows<-round(sqrt(maxCases*(wardHt/wardWid)))
-        
-        # check that there are enough cols and rows
-        ## if not, add an extra row or col depending on which we need more of overall
+        ## Check that there are enough cols and rows
+        ### if not, add an extra row or col depending on which we need more of overall
         if(nRows>=nCols){
           while(nRows*nCols < maxCases){
             nRows<-nRows+1
@@ -889,42 +1226,46 @@ shinyServer(function(input, output, session) {
             nCols<-nCols+1
           }
         }
-        
-        datCoord<-plan[,c("id", "xMin", "xMax", "yMin", "yMax", "totWard", "nWard")]
-        
-        datCoord<-do.call("rbind", 
-                          replicate(maxCases, datCoord, simplify=FALSE))
-        
-        datCoord<-
-          datCoord %>%
-          arrange(id) %>%
-          group_by(id) %>%
-          mutate(nBed=1:length(id)) 
-        
-        
-        datCoord<-
-          datCoord %>%
-          mutate(rowN=nRows+1-(ceiling(nBed/nCols))) %>%
-          mutate(colN=((nBed/nCols)-trunc(nBed/nCols))*nCols)
-        
-        datCoord$colN[datCoord$colN==0]<-nCols
-        
-        datCoord<-
-          datCoord %>%
-          mutate(x=xMin+(((xMax-xMin)/nCols)*colN)-(((xMax-xMin)/nCols)/2)) %>%
-          mutate(y=yMin+(((yMax-yMin)/nRows)*rowN)-(((yMax-yMin)/nRows)/2))              
-        
-        
-        ## Image to be used as background for plan
+        ## Plan coordinates
+        plan <-
+          plan %>%
+          distinct(wardId, nFloor) %>%
+          arrange(nFloor) %>%
+          ungroup() %>%
+          mutate(id=seq(1:n()))
+        ## Wards 
+        wardIdLookUp<-data.frame(
+          id=plan$id,
+          wardId=plan$wardId)
+        plan<-
+          plan %>%
+          group_by(nFloor) %>%
+          mutate(totWard=length(id), 
+                 nWard=seq(1:length(id)), 
+                 xMin=(nWard*wardWid)-wardWid+0.2, 
+                 xMax=nWard*wardWid, 
+                 yMin=(nFloor*wardHt)-wardHt+0.2,
+                 yMax=nFloor*wardHt, 
+                 x1=xMin, x2=xMin, x3=xMax, x4=xMax, 
+                 y1=yMin, y2=yMax, y3=yMax, y4=yMin, 
+                 xMid=(xMin+xMax)/2, yMid=(yMin+yMax)/2) 
+        ## Convert coordinates to polygons for plotting
+        pol <-
+          gather(data=plan[,c("id", "x1", "x2", "x3", "x4")], key=coord, value=x, x1:x4)
+        pol<-cbind(
+          pol,
+          gather(data=plan[,c("id", "y1", "y2", "y3", "y4")], key=coord, value=y, y1:y4))
+        pol<-pol[,c("id","x","y")]
+        pol<-arrange(pol, id)
 
+        ## Image to be used as background for plan
         ### aspect ratio of plan
         aspPr<-(max(plan$xMax)+0.2)/(max(plan$yMax)+0.2)
-
         ### name of file
         plName<-tempfile(fileext='.png')
+        ### render image
         plImage<-renderImage({
           plName<-tempfile(fileext='.png')
-          
           png(filename=plName,    
               width=aspPr*500, 
               height=500, units="px")  
@@ -933,7 +1274,6 @@ shinyServer(function(input, output, session) {
               geom_polygon(aes(group=id), fill="white", col="black") +
               scale_y_continuous(expand=c(0,0), limits=c(min(plan$yMin)-0.2, max(plan$yMax)+0.2))+
               scale_x_continuous(expand=c(0,0), limits=c(min(plan$xMin)-0.2, max(plan$xMax)+0.2))+
-
               theme(
                 legend.position="none",
                 axis.text=element_blank(),
@@ -945,1023 +1285,500 @@ shinyServer(function(input, output, session) {
                 axis.line=element_blank(),
                 axis.ticks.length = unit(0, "mm"), 
                 panel.background = element_rect(fill="#F0F0F0"),
-                panel.border = element_rect(fill=NA, colour = "#F0F0F0", size=1, inherit.blank = F)
-              )+
+                panel.border = element_rect(fill=NA, colour = "#F0F0F0", size=1, inherit.blank = F))+
               labs(x=NULL,y=NULL, title=NULL) +
               coord_equal())
           dev.off()
-          
           list(src=plName, contentType="image/png", width=aspPr*500, height=500, alt="altText")
-          
         }, deleteFile=T)
+        planParams$plPath<-plImage(session)$src
         
-      plPath<-plImage(session)$src
-      
-      
-      # Plot floor plan - leaflet
-      
-      ## set bounds of the map 
-      bounds<-c(min(plan$yMin)-0.2, min(plan$xMin)-0.2, max(plan$yMax)+0.2, max(plan$xMax)+0.2)
-      
-      ## scale by 100 so that it isn't stupidly small
-      bounds<-bounds*100
-        
-      ## ward labels
-      wardLab<-
-        plan %>%
-        ungroup() %>%
-        select(wardId, xMid, yMid, yMax) %>%
-        mutate(xMid=xMid*100) %>%
-        mutate(yMid=yMid*100)
-      
-      output$polDat<-renderTable(wardLab)
-      
-      ## also change the coordinates by 1000
-      leafCoord<-
-        datCoord %>%
-        select(id, nBed, rowN, colN, x, y, totWard, nWard) %>%
-        mutate(x=x*100, y=y*100)
-
-        leafCoord<-
-          left_join(leafCoord, wardIdLookUp, by="id")
-        
-        leafCoord<-
-          leafCoord %>%
-          group_by(wardId) %>%
+        ## Set bounds of the map 
+        planParams$bounds<-c(min(plan$yMin)-0.2, min(plan$xMin)-0.2, max(plan$yMax)+0.2, max(plan$xMax)+0.2)
+        ### scale by 100 so that it isn't stupidly small
+        planParams$bounds<-planParams$bounds*100
+        ## ward labels
+        planParams$wardLab<-
+          plan %>%
+          ungroup() %>%
+          select(wardId, xMid, yMid, yMax) %>%
+          mutate(xMid=xMid*100, yMid=yMid*100)
+        ## Coordinates for data
+        datCoord<-plan[,c("id", "xMin", "xMax", "yMin", "yMax", "totWard", "nWard")]
+        datCoord<-do.call("rbind", 
+                          replicate(maxCases, datCoord, simplify=FALSE))
+        datCoord<-
+          datCoord %>%
+          arrange(id) %>%
+          group_by(id) %>%
+          mutate(nBed=1:length(id), 
+                 rowN=nRows+1-(ceiling(nBed/nCols)), 
+                 colN=((nBed/nCols)-trunc(nBed/nCols))*nCols, 
+                 colN=ifelse(colN==0, nCols, colN), 
+                 x=(xMin+(((xMax-xMin)/nCols)*colN)-(((xMax-xMin)/nCols)/2))*100, 
+                 y=(yMin+(((yMax-yMin)/nRows)*rowN)-(((yMax-yMin)/nRows)/2))*100) %>%
+          select(id, nBed, rowN, colN, x, y, totWard, nWard) %>%
+          left_join(wardIdLookUp, by="id") %>%
+          group_by(wardId)%>%
           mutate(wardN=seq(1:length(id)))
-        
-        leafCoord$wardId<-as.character(leafCoord$wardId)
-        
+        datCoord$wardId<-as.character(datCoord$wardId)
         # assign coordinates to data 
-        
         ## identify first to fill ward
-        dat1<-datNam
-        dat1<-
-          dat1 %>%
+        mvmtDat$datNamCoord<-
+          mvmtDat$datNamCoord %>%
           group_by(wardId) %>%
           arrange(dayIn) %>%
           mutate(wardN=seq(1:length(ptId)))
-        
         ## change to NA if wardN is larger than the n in the ward
-        dat1<-
-          dat1 %>%
+        mvmtDat$datNamCoord<-
+          mvmtDat$datNamCoord %>%
           mutate(wardN=ifelse(wardN>maxCases, NA, wardN))
         
         ## assign ward position to data
         suppressWarnings(
-          sapply(1:max(count(dat1, wardId)$n), function(i) {
-            
+          sapply(1:max(count(mvmtDat$datNamCoord, wardId)$n), function(i) {
             freeSlots<<-
-              dat1 %>%
+              mvmtDat$datNamCoord %>%
               group_by(wardId) %>%
               filter(!is.na(wardN)) %>%
               arrange(dayOut) %>%
               slice(i) %>%
               select(wardId, wardN)  
-            
-            
-         ## join the free ward positions to the ids that need them (second in without a loc)
-            dat1<<-
+            ## join the free ward positions to the ids that need them (second in without a loc)
+            mvmtDat$datNamCoord<<-
               rbind(
-                dat1 %>%
+                mvmtDat$datNamCoord %>%
                   group_by(wardId) %>%
                   filter(!(is.na(wardN) & dayIn==min(dayIn[is.na(wardN)]))),
                 inner_join(
-                  dat1 %>%
+                  mvmtDat$datNamCoord %>%
                     group_by(wardId) %>%
                     filter(is.na(wardN) & dayIn==min(dayIn[is.na(wardN)])) %>%
                     select(-wardN),
                   freeSlots, by="wardId"
                 )
               )
-            
           })
         )  
-
         ## join to coordinates
-        dat1$wardId<-as.character(dat1$wardId)
-        dat1<-left_join(dat1, leafCoord, by=c("wardId", "wardN"))  
-
-        # Generate variables
-        
-        ## Genetic distance
-        
-        datGen<-reactive({
-          if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-            genDistCl<-filter(genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
-            dat1$gendis<-"N"
-            dat1$gendis[which(dat1$ptId==input$genDIndex)]<-"index"
-            dat1$gendis[which(dat1$ptId%in%genDistCl)]<-"Y"
-            dat1$gendis<-factor(dat1$gendis, levels=c("index", "Y", "N"))
-            dat1 
-          } else {dat1}
-          
-        })
-        
-        
-        ## Infection period and hosp acquired  
-        datInf<-reactive({
-          datInf1<-as.data.frame(datGen())
-          datInf1$symStart<-datInf1$samp-input$sampDel
-          datInf1$expStart<-datInf1$symStart-input$incMax
-          datInf1$expEnd<-datInf1$symStart-input$incMin
-          datInf1$infecEnd<-datInf1$symStart+input$infecLen
-          datInf1$infec<-NA
-          datInf1$infec[which(input$day<datInf1$expStart)]<-"PreExposure"
-          datInf1$infec[which(input$day>=datInf1$expStart &
-                                input$day<=datInf1$expEnd)]<-"ExposurePeriod"
-          datInf1$infec[which(input$day>datInf1$expEnd & 
-                                input$day<datInf1$symStart)]<-"IncubationPeriod"
-          datInf1$infec[which(input$day>=datInf1$symStart & 
-                                input$day<=datInf1$infecEnd)]<-"InfectiousPeriod"
-          datInf1$infec[which(input$day>datInf1$infecEnd)]<-"PostInfectious"
-          
-          datInf1$infec<-factor(datInf1$infec, 
-                                levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
-                                         "InfectiousPeriod", "PostInfectious"))
-          
-          datInf1<-
-            datInf1 %>%
-            group_by(ptId) %>%
-            mutate(firstDay=min(dayIn)) %>%
-            ungroup() %>%
-            mutate(acq=ifelse(samp-firstDay>=input$hospAcqLen, "Hospital", "Community"))
-          
-          datInf1$acq<-factor(datInf1$acq, levels=c("Hospital", "Community"))
-          as.data.frame(datInf1)
-          
-        })
-        
-        
-        ## assign colours to data
-        
-        datCol<-reactive({
-          datCol1<-datInf()
-          if(!("colByVar" %in% input$planOpts)){
-            datCol1$col<-"#3c8dbc"
-          }  else if(input$pl=="infec"){
-            cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
-                    brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
-            )
-            factpal<-colorFactor(cols, datCol1$infec)
-            datCol1$col<-factpal(datCol1$infec)
-            
-          }  else if(input$pl=="acq"){
-              cols<-brewer.pal(3, "Set1")[1:2]
-              factpal<-colorFactor(cols, datCol1$acq)
-              datCol1$col<-factpal(datCol1$acq)
-
-          } else if(input$pl!=""){
-            suppressWarnings(
-              colRamp<-colorRampPalette(brewer.pal(length(levels(datCol1[,input$pl])), "Set1"))
-            )
-            cols<-colRamp(length(levels(datCol1[,input$pl])))
-            factpal <- colorFactor(cols, datCol1[,input$pl])
-            datCol1$col<- factpal(datCol1[,input$pl])
-          } 
-          datCol1
-          
-        })
-        
-
-        ## filter data by day 
-        datDay<-reactive({
-          datDay1<-datCol()
-          datDay1<-datDay1[which(input$day>=datDay1$dayIn &
-                                   input$day<datDay1$dayOut),]
-          as.data.frame(datDay1)
-        })
-        
-        
-        ## filter data by groups
-        datFil<-reactive({
-          datFil1<-datDay()
-          if(length(input$catvars>=1)){
-            filGrps<-lapply(1:length(input$catvars), function(j){
-              datDay()[,input$catvars[j]]%in%input[[paste0("fil",j)]]           
-            })
-            filGrps<-Reduce("&", filGrps)  
-            datFil1<-datFil1[which(filGrps),]
-          }
-          datFil1<-datFil1[which(input$day>=datFil1$dayIn &
-                                   input$day<datFil1$dayOut),]
-          datFil1<-datFil1[which(datFil1$infec%in%input$infec),]
-          datFil1<-datFil1[which(datFil1$ptId%in%input$ptId),]
-          datFil1<-datFil1[which(datFil1$acq%in%input$acqFil),]
-          as.data.frame(datFil1)
-          
-        })
-        
-
-        # Render plan
-        
-        output$map<-renderLeaflet({
-          validate(need(input$incMax>=input$incMin, 
-                        "Maximum incubation period must not be shorter than minimum inubation period"))
-          validate(need(length(input$ptIdNet)>=2, "Please select at least two patients"))
-          leaflet(options= leafletOptions(
-            crs=leafletCRS(crsClass='L.CRS.Simple'),minZoom= -5, maxZoom = 5)) %>%
-            fitBounds(lng1=bounds[2], lat1=bounds[1], lng2=bounds[3], lat2=bounds[4]) %>%
-            htmlwidgets::onRender(paste0("
-                                         function(el, t) {
-                                         var myMap = this;
-                                         var bounds = [[",bounds[1],",",bounds[2],"],[[",bounds[3],",",bounds[4],"]]];
-                                         var image = new L.ImageOverlay(
-                                         '",plPath,"',
-                                         bounds);
-                                         image.addTo(myMap);
-                                         image.setOpacity(1);
-                                         image.bringToBack();
-                                         myMap.setMaxBounds(bounds);
-                                         }"))
-      
-        })
-        
-        ## add points to plan
-        
-        observe({
-          if(input$pan=="panPl"){
-            map<-leafletProxy("map")
-            map %>% 
-              clearMarkers() %>%
- #             clearControls() %>%
-              removeControl("plLeg") %>%
-              addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=8, color="black",
-                               weight=1, fillOpacity=1, layerId=~ptId)
-
-             if("wardLabShow" %in% input$planOpts){
-              map %>% addLabelOnlyMarkers(data=wardLab, lng=~xMid, lat=~yMid, label=~htmlEscape(wardId),
+        mvmtDat$datNamCoord$wardId<-as.character(mvmtDat$datNamCoord$wardId)
+        mvmtDat$datNamCoord<-left_join(mvmtDat$datNamCoord, datCoord, by=c("wardId", "wardN")) 
+      }
+    })
+  
+  # Generate variables for plotting
+  ## Genetic distance
+  datGen<-reactive({
+    if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+      genDistCl<-filter(genDat$genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
+      mvmtDat$datNamCoord <-
+      mvmtDat$datNamCoord %>%
+        mutate(gendis=ifelse(ptId==input$genDIndex, "index", "N")) %>%
+        mutate(gendis=ifelse(ptId%in%genDistCl, "Y", gendis)) %>%
+        mutate(gendis=factor(gendis, levels=c("index", "N", "Y")))
+      mvmtDat$datNamCoord 
+    } else {mvmtDat$datNamCoord}
+  })
+  
+  ## Infection period and hosp acquired  
+  datInf<-reactive({
+    validate(need(nrow(datGen())>=1, "No wards selected"))
+    datInf1<-as.data.frame(datGen())
+    datInf1$symStart<-datInf1$samp-input$sampDel
+    datInf1$expStart<-datInf1$symStart-input$incMax
+    datInf1$expEnd<-datInf1$symStart-input$incMin
+    datInf1$infecEnd<-datInf1$symStart+input$infecLen
+    datInf1$infec<-NA
+    datInf1$infec[which(input$day<datInf1$expStart)]<-"PreExposure"
+    datInf1$infec[which(input$day>=datInf1$expStart &
+                          input$day<=datInf1$expEnd)]<-"ExposurePeriod"
+    datInf1$infec[which(input$day>datInf1$expEnd & 
+                          input$day<datInf1$symStart)]<-"IncubationPeriod"
+    datInf1$infec[which(input$day>=datInf1$symStart & 
+                          input$day<=datInf1$infecEnd)]<-"InfectiousPeriod"
+    datInf1$infec[which(input$day>datInf1$infecEnd)]<-"PostInfectious"
+    datInf1$infec<-factor(datInf1$infec, 
+                          levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
+                                   "InfectiousPeriod", "PostInfectious"))
+    datInf1<-
+      datInf1 %>%
+      group_by(ptId) %>%
+      mutate(firstDay=min(dayIn)) %>%
+      ungroup() %>%
+      mutate(acq=ifelse(samp-firstDay>=input$hospAcqLen, "Hospital", "Community"))
+    datInf1$acq<-factor(datInf1$acq, levels=c("Hospital", "Community"))
+    as.data.frame(datInf1)
+  })
+  
+  # Assign colours to points based on selected variable
+  datCol<-reactive({
+    datCol1<-datInf()
+    if(!("colByVar" %in% input$planOpts)){
+      datCol1$col<-"#3c8dbc"
+    }  else if(input$pl=="infec"){
+      cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
+              brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
+      )
+      factpal<-colorFactor(cols, datCol1$infec)
+      datCol1$col<-factpal(datCol1$infec)
+    }  else if(input$pl=="acq"){
+      cols<-brewer.pal(3, "Set1")[1:2]
+      factpal<-colorFactor(cols, datCol1$acq)
+      datCol1$col<-factpal(datCol1$acq)
+    } else if(input$pl!=""){
+      suppressWarnings(
+        colRamp<-colorRampPalette(brewer.pal(length(levels(datCol1[,input$pl])), "Set1"))
+      )
+      cols<-colRamp(length(levels(datCol1[,input$pl])))
+      factpal <- colorFactor(cols, datCol1[,input$pl])
+      datCol1$col<- factpal(datCol1[,input$pl])
+    } 
+    datCol1
+  })
+  
+  # Filter data
+  ## Day
+  datDay<-reactive({
+    datDay1<-datCol()
+    datDay1<-datDay1[which(input$day>=datDay1$dayIn &
+                             input$day<datDay1$dayOut),]
+    as.data.frame(datDay1)
+  })
+  
+  ## Groups
+  datFil<-reactive({
+    datFil1<-datDay()
+    if(length(input$catvars>=1)){
+      filGrps<-lapply(1:length(input$catvars), function(j){
+        datDay()[,input$catvars[j]]%in%input[[paste0("fil",j)]]           
+      })
+      filGrps<-Reduce("&", filGrps)  
+      datFil1<-datFil1[which(filGrps),]
+    }
+    datFil1<-datFil1[which(input$day>=datFil1$dayIn &
+                             input$day<datFil1$dayOut),]
+    datFil1<-datFil1[which(datFil1$infec%in%input$infec),]
+    datFil1<-datFil1[which(datFil1$ptId%in%input$ptId),]
+    datFil1<-datFil1[which(datFil1$acq%in%input$acqFil),]
+    as.data.frame(datFil1)
+  })
+  
+  # Render plan background
+  output$map<-renderLeaflet({
+            validate(need(input$incMax>=input$incMin, 
+                          "Maximum incubation period must not be shorter than minimum inubation period"))
+    leaflet(options= leafletOptions(
+      crs=leafletCRS(crsClass='L.CRS.Simple'),minZoom= -5, maxZoom = 5)) %>%
+      fitBounds(lng1=planParams$bounds[2], lat1=planParams$bounds[1], 
+                lng2=planParams$bounds[3], lat2=planParams$bounds[4]) %>%
+      htmlwidgets::onRender(paste0("
+                                   function(el, t) {
+                                   var myMap = this;
+                                   var bounds = [[",planParams$bounds[1],",",planParams$bounds[2],"],[[",planParams$bounds[3],",",planParams$bounds[4],"]]];
+                                   var image = new L.ImageOverlay(
+                                   '",planParams$plPath,"',
+                                   bounds);
+                                   image.addTo(myMap);
+                                   image.setOpacity(1);
+                                   image.bringToBack();
+                                   myMap.setMaxBounds(bounds);
+                                   }"))
+      })
+  
+  # Add data to plan
+  observe({
+    if(input$pan=="panPl"){
+      map<-leafletProxy("map")
+      map %>% 
+        clearMarkers() %>%
+        removeControl("plLeg") %>%
+        addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=8, color="black",
+                         weight=1, fillOpacity=1, layerId=~ptId)
+      ## Ward labels
+      if("wardLabShow" %in% input$planOpts){
+        map %>% addLabelOnlyMarkers(data=planParams$wardLab, lng=~xMid, lat=~yMid, label=~htmlEscape(wardId),
                                     labelOptions=labelOptions(noHide=T,offset=c(0,-10), textOnly=T, 
                                                               style = list(
                                                                 "color" = "#3c8dbc",
-                                                                "font-size" = "15px")
-                                                              )
-                                    )}
-            if(!"colByVar" %in% input$planOpts){
-              map %>% clearControls()
-            } else if(input$pl=="infec"){
-              map %>% addLegend(position="bottomright", 
-                                colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
-                                         brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
-                                ),
-                                 labels=levels(datCol()$infec), opacity=1, layerId="plLeg", 
-                                 title="Patient characteristic")
-              } else if(input$pl=="gendis"){
-                map %>% addLegend(position="bottomright", 
-                                  colors=brewer.pal(3, "Set1"), 
-                                  labels=levels(datCol()$gendis), opacity=1, layerId="plLeg", 
-                                  title="Patient characteristic")
-                
-              } else if(input$pl=="acq"){
-                map %>% addLegend(position="bottomright", 
-                                  colors=brewer.pal(3, "Set1")[1:2], 
-                                  labels=c("Hospital", "Community"), opacity=1, layerId="plLeg", 
-                                  title="Patient characteristic")
-              } else if(input$pl!="" & input$pl!="selvar") {
-              map %>% addLegend(position="bottomright", colors=unique(datCol()$col),
-                                labels=levels(datCol()[,input$pl]), opacity=1, layerId="plLeg", 
-                                title="Patient characteristic")
-                                
-            }
-          }
-          
-        })
-        
-        ## add pop ups 
-        
-        popContent<-function(ID){
-          datPop<-datFil()
-          
-          selectedID <- datPop[datPop$ptId == ID,]
-          #        conList<-
-          #          lapply(popVar, function(l){
-          #            list(tags$strong(l),         
-          #                 selectedID[,l],
-          #                 tags$br())
-          #          })
-          content<-as.character(
-            tagList(
-              tags$strong("ID"), selectedID$ptId, tags$br(),
-              tags$strong("Ward"), selectedID$wardId, tags$br(),
-              tags$strong("Sample day"), selectedID$samp, tags$br()
-              #            conList
-            )
-          )
-          
-          return(content) 
-          
-        }
-   
-        observe({ 
-          map<-leafletProxy("map")
-          map %>% clearPopups()
-          event<-input$map_marker_click
-          if (is.null(event)){
-            return()
-          } else{
-            isolate({
-              map %>% addPopups(lng=event$lng, lat=event$lat, 
-                                popup=popContent(event$id),
-                                options=popupOptions(closeOnClick=T))
-            })
-          }
-          
-        })
-  
-      
-
-
-        ## create infection link lines
-        
-        lnkLine<-reactive({
-          lnkLin1<-as.data.frame(datFil())
-          lnkLin1$nlink<-NA
-          
-          for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="ExposurePeriod"]))){
-            ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
-            lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod"),])
-          }
-          
-          if(sum(lnkLin1$nlink, na.rm=T)>0){
-            lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
-            lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
-            
-            lnk$x1<-NA
-            lnk$y1<-NA
-            
-            for(i in unique(lnk$ptId)){
-              ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
-              lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
-              lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
-            }
-            lnk
-          } else {NULL}
-        })
-        
-        
-        ## create genetic link lines
-
-        lnkGenLine<-reactive({
-          lnkLin1<-as.data.frame(datFil())
-          lnkLin1$nlink<-NA
-          
-          for(i in (unique(lnkLin1$ptId[lnkLin1$gendis=="Y"]))){
-        #    ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
-            lnkLin1$nlink[lnkLin1$ptId==i]<-1
-          }
-          
-          if(sum(lnkLin1$nlink, na.rm=T)>0){
-            lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
-            lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
-            
-            lnk$x1<-NA
-            lnk$y1<-NA
-            
-            for(i in unique(lnk$ptId)){
-            #  ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
-              lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$gendis=="index")]
-              lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$gendis=="index")]
-            }
-            lnk
-          } else {NULL}
-        })
-        
-        
-        observe({
-          if("lnk" %in% input$planOpts){
-            map<-leafletProxy("map")
-            if(!is.null(lnkLine())){
-              map<-map%>%clearGroup("lnks")
-              for(i in 1:nrow(lnkLine())){
-                map %>%
-                  addPolylines(lng=as.numeric(lnkLine()[i,c("x","x1")]), 
-                               lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks",
-                               color="red", opacity=0.5)
-              }
-            } else {map %>%clearGroup("lnks")}
-        
-            
-          } else{
-            map<-leafletProxy("map")
-            map %>%
-              clearGroup("lnks")
-          }
-          if("lnkGen" %in% input$planOpts){
-            map<-leafletProxy("map")
-            if(!is.null(lnkGenLine())){
-              map<-map%>%clearGroup("lnksGen")
-              for(i in 1:nrow(lnkGenLine())){
-                map %>%
-                  addPolylines(lng=as.numeric(lnkGenLine()[i,c("x","x1")]), 
-                               lat=as.numeric(lnkGenLine()[i,c("y","y1")]), group="lnksGen",
-                               color="blue", opacity=0.5)
-              }
-            } else {map %>%clearGroup("lnksGen")}
-            
-            
-          } else{
-            map<-leafletProxy("map")
-            map %>%
-              clearGroup("lnksGen")
-          }
-          
-          
-            
-          })
-        
-
+                                                                "font-size" = "15px")))}
+      ## Points, coloured by selected variable 
+      if(!"colByVar" %in% input$planOpts){
+        map %>% clearControls()
+      } else if(input$pl=="infec"){
+        map %>% addLegend(position="bottomright", 
+                          colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
+                                   brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
+                          ),
+                          labels=levels(datCol()$infec), opacity=1, layerId="plLeg", 
+                          title="Patient characteristic")
+      } else if(input$pl=="gendis"){
+        map %>% addLegend(position="bottomright", 
+                          colors=brewer.pal(3, "Set1"), 
+                          labels=levels(datCol()$gendis), opacity=1, layerId="plLeg", 
+                          title="Patient characteristic")
+      } else if(input$pl=="acq"){
+        map %>% addLegend(position="bottomright", 
+                          colors=brewer.pal(3, "Set1")[1:2], 
+                          labels=c("Hospital", "Community"), opacity=1, layerId="plLeg", 
+                          title="Patient characteristic")
+      } else if(input$pl!="" & input$pl!="selvar") {
+        map %>% addLegend(position="bottomright", colors=unique(datCol()$col),
+                          labels=levels(datCol()[,input$pl]), opacity=1, layerId="plLeg", 
+                          title="Patient characteristic")
       }
-
-           
-        # Epidemic curves
+    }
+  })
+  
+  # Pop ups on click 
+  ## Data to be included in the pop up
+  popContent<-function(ID){
+    datPop<-datFil()
+    selectedID <- datPop[datPop$ptId == ID,]
+    #        conList<-
+    #          lapply(popVar, function(l){
+    #            list(tags$strong(l),         
+    #                 selectedID[,l],
+    #                 tags$br())
+    #          })
+    content<-as.character(
+      tagList(
+        tags$strong("ID"), selectedID$ptId, tags$br(),
+        tags$strong("Ward"), selectedID$wardId, tags$br(),
+        tags$strong("Sample day"), selectedID$samp, tags$br()
+        #            conList
+      )
+    )
+    return(content) 
+  }
+  ## Add to map
+  observe({ 
+    map<-leafletProxy("map")
+    map %>% clearPopups()
+    event<-input$map_marker_click
+    if (is.null(event)){
+      return()
+    } else{
+      isolate({
+        map %>% addPopups(lng=event$lng, lat=event$lat, 
+                          popup=popContent(event$id),
+                          options=popupOptions(closeOnClick=T))
+      })
+    }
+  })
+  
+  # Link lines
+  ## Epidemiological (infection period) links
+  lnkLine<-reactive({
+    lnkLin1<-as.data.frame(datFil())
+    lnkLin1$nlink<-NA
+    for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="ExposurePeriod"]))){
+      ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+      lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod"),])
+    }
+    if(sum(lnkLin1$nlink, na.rm=T)>0){
+      lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+      lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+      lnk$x1<-NA
+      lnk$y1<-NA
+      for(i in unique(lnk$ptId)){
+        ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+        lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+        lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+      }
+      lnk
+    } else {NULL}
+  })
+  ## Genetic links
+  lnkGenLine<-reactive({
+    lnkLin1<-as.data.frame(datFil())
+    lnkLin1$nlink<-NA
+    for(i in (unique(lnkLin1$ptId[lnkLin1$gendis=="Y"]))){
+      #    ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+      lnkLin1$nlink[lnkLin1$ptId==i]<-1
+    }
+    if(sum(lnkLin1$nlink, na.rm=T)>0){
+      lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+      lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+      lnk$x1<-NA
+      lnk$y1<-NA
+      for(i in unique(lnk$ptId)){
+        #  ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+        lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$gendis=="index")]
+        lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$gendis=="index")]
+      }
+      lnk
+    } else {NULL}
+  })
+  ## Add links to plan
+  observe({
+    if("lnk" %in% input$planOpts){
+      map<-leafletProxy("map")
+      if(!is.null(lnkLine())){
+        map<-map%>%clearGroup("lnks")
+        for(i in 1:nrow(lnkLine())){
+          map %>%
+            addPolylines(lng=as.numeric(lnkLine()[i,c("x","x1")]), 
+                         lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks",
+                         color="red", opacity=0.5)
+        }
+      } else {map %>%clearGroup("lnks")}
+    } else{
+      map<-leafletProxy("map")
+      map %>%
+        clearGroup("lnks")
+    }
+    if("lnkGen" %in% input$planOpts){
+      map<-leafletProxy("map")
+      if(!is.null(lnkGenLine())){
+        map<-map%>%clearGroup("lnksGen")
+        for(i in 1:nrow(lnkGenLine())){
+          map %>%
+            addPolylines(lng=as.numeric(lnkGenLine()[i,c("x","x1")]), 
+                         lat=as.numeric(lnkGenLine()[i,c("y","y1")]), group="lnksGen",
+                         color="blue", opacity=0.5)
+        }
+      } else {map %>%clearGroup("lnksGen")}
+    } else{
+      map<-leafletProxy("map")
+      map %>%
+        clearGroup("lnksGen")}
+  })
+  
+  #----------------------------------------
+  # Network tab
+  #----------------------------------------
+  
+  # Trigger for updating plot
+  netTrig<-reactive({
+    paste(input$goNet, input$pan=="panNet")
+  })
+  
+  # Network data
+  datNet<-eventReactive(netTrig(),{
+    datNet1<-as.data.frame(mvmtDat$datNam)
+    datNet1$symStart<-datNet1$samp-input$sampDelNet
+    datNet1$expStart<-datNet1$symStart-input$incMaxNet
+    datNet1$expEnd<-datNet1$symStart-input$incMinNet
+    datNet1$infecEnd<-datNet1$symStart+input$infecLenNet
+    datNet1<-datNet1[datNet1$ptId%in%input$ptIdNet,]
+    datNet1
+  })
+  
+  # Pairwise combinations of patients
+  pw<-reactive({
+    data.frame(
+      id1=combn(unique(datNet()[,"ptId"]),2)[1,],
+      id2=combn(unique(datNet()[,"ptId"]),2)[2,], 
+      days=NA
+    )
+  })
+  
+  # Overlap between patients
+  ol1<-reactive({
+    ## Days in ward
+    if(input$netrad=="wardNet"){
+      ol<-vector("list", length(unique(datNet()$wardId)))
+      lapply(1:nrow(pw()), function(i){
+        j<<-pw()$id1[i]
+        k<<-pw()$id2[i]
         
-        ## Inputs
-        
-        ### patient characteristics - colour dropdown
-        updateSelectizeInput(session, "plEpi", choices=c(
-          "Place acquired" = "acqEpi",
-          input$catvars))
-        
-        ## patient characteristics - filter
-        output$filVarsEpiUi<-renderUI({
-          if(length(input$catvars)>=1){
-            lapply(c(1:length(input$catvars)), function(i) {
-              selectInput(
-                inputId=paste0("filEpi",i),
-                label=input$catvars[i], 
-                choices=c(levels(coreDatNam[,input$catvars[i]])),
-                selected=levels(coreDatNam[,input$catvars[i]]),
-                multiple=T)
-            })
+        lapply(1:length(unique(datNet()$wardId)), function(n){
+          m<<-unique(datNet()$wardId)[n]
+          if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
+             k %in% datNet()[datNet()$wardId==m, "ptId"]) {
+            ol[[n]][i]<<-
+              length(which(
+                seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayIn"], 
+                    datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayOut"], 1) %in%
+                  seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayIn"], 
+                      datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayOut"], 1)
+              ))  
+          } else {
+            ol[[n]][i]<<-0
           }
         })
-        outputOptions(output, "filVarsEpiUi", suspendWhenHidden = FALSE)
-
-        
-        ## start and end dates for epi curve
-        
-        output$epidatesUi<-renderUI({
-          dateRangeInput("epidates", label="Dates", min=min(coreDatNam$samp), max=max(coreDatNam$samp),
-                         start=min(coreDatNam$samp), end=max(coreDatNam$samp))
-                         
-        })
-
-   
-       brks<-reactive({
-         validate(need(!is.na(input$binwid), "Please select bar width"))
-         if(length(input$epidates)!=2){
-           validate(need(!is.na(input$binwid), "Please select bar width"))
-           brks1<-seq(min(coreDatNam$samp), max(coreDatNam$samp), input$binwid)
-           while(max(brks1)<max(coreDatNam$samp)){
-             brks1<-c(brks1, max(brks1)+input$binwid)
-           }
-           if(length(brks1)==1){
-             brks1<-c(brks1, brks1+input$binwid)
-           }
-           brks1
-         } else {
-           validate(need(!is.na(input$binwid), "Please select bar width"))
-           brks1<-seq(input$epidates[1], input$epidates[2], input$binwid)
-           while(max(brks1)<input$epidates[2]){
-             brks1<-c(brks1, max(brks1)+input$binwid)
-             if(length(brks1)==1){
-               brks1<-c(brks1, brks1+input$binwid)
-             }
-           }
-           brks1
-         }
-         
-       })
-        
-
-       datEpi<-reactive({
-         datEpi1<-coreDatNam
-         datEpi1<-
-           datEpi1 %>%
-           mutate(acqEpi=ifelse(samp-admDat>=input$hospAcqLenEpi, "Hospital", "Community")) 
-         datEpi1$acqEpi<-factor(datEpi1$acqEpi, levels=c("Hospital", "Community")) 
-      
-           datEpi1$grpTot<-cut(datEpi1$samp, breaks=brks(), include.lowest=T)
-           
-
-
-         if(length(input$epidates)!=2 & input$colByVarEpi==FALSE){
-         
-           datEpi1$colEpi<-"#3c8dbc"
-           
-         } else {
-           datEpi1<-
-             datEpi1 %>%
-             arrange(datEpi1[,input$plEpi])
- 
-           if(input$colByVarEpi==FALSE){
-             datEpi1$colEpi<-"#3c8dbc"
-           
-           } else if(input$plEpi=="acqEpi"){
-             cols<-brewer.pal(3, "Set1")[1:2]
-             factpal<-colorFactor(cols, datEpi1$acqEpi)
-             datEpi1$colEpi<-factpal(datEpi1$acqEpi)
-           } else if(input$plEpi!=""){
-             suppressWarnings(
-               colRamp<-colorRampPalette(brewer.pal(length(levels(datEpi1[,input$plEpi])), "Set1"))
-             )
-             cols<-colRamp(length(levels(datEpi1[,input$plEpi])))
-             factpal <- colorFactor(cols, datEpi1[,input$plEpi])
-             datEpi1$colEpi<- factpal(datEpi1[,input$plEpi])
-           }
-           
-        }
-         as.data.frame(datEpi1)
-
-       })
-       
-       
-       datEpiFil<-reactive({
-         datEpiFil1<-datEpi()
-         
-         if(length(input$epidates)!=2){         
-           datEpiFil1
-         } else {
-   
-           datEpiFil1<-
-           datEpiFil1 %>%
-             filter(samp>=input$epidates[1] & samp<=input$epidates[2]) %>%
-             filter(acqEpi%in%input$acqFilEPi)
-           
-           if(length(input$catvars>=1)){
-             filGrps<-lapply(1:length(input$catvars), function(j){
-               datEpiFil1[,input$catvars[j]]%in%input[[paste0("filEpi",j)]]           
-             })
-             filGrps<-Reduce("&", filGrps)  
-             datEpiFil1<-datEpiFil1[which(filGrps),]
-           }
-
-           datEpiFil1
-         } 
-           
-         
-       })
-       
-
-          output$epiplotAll<-renderPlot({
-            validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
-
-            epiymax<-max(datEpiFil()%>%
-                           group_by(grpTot) %>%
-                           summarise(tot=n()) %>%
-                           ungroup() %>%
-                           select(tot))
-            
-            
-  #          if(epiymax<length(brks())-1){
-  #            epiymax<-length(brks())-1
-  #          }
-  #          
- #           brks1<-brks()
-  #          while(length(brks1-1<epiymax)){
-  #            brks1<-c(brks1, max(brks1)+input$binwid)
-#            }
-            
-
-            
-            if(input$colByVarEpi==FALSE){
-              ggplot(datEpiFil())+
-                geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
-                scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
-                             date_breaks=input$xbrks, date_labels=input$xlabs
-                             )+
-                scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
-                                             y=1:epiymax, yend=1:epiymax), 
-                             aes(x=x, xend=xend, y=y, yend=yend),
-                             col="white")+
-                theme(
-                  legend.position="none",
-                  panel.grid.major = element_blank(),
-                  panel.grid.minor = element_blank(),
-                  axis.title.x=element_text(),
-                  axis.title.y=element_text(),
-                  axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
-                                           vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
-                  panel.background = element_rect(fill=NA, colour="black"))+
-                labs(x="Sample date", y="Count")
-              
-            } else {
-              ggplot(datEpiFil())+
-                geom_histogram(aes(x=samp, fill=datEpiFil()[,input$plEpi]), breaks=as.numeric(brks()), col="white", closed="left")+
-                scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
-                scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
-                             date_breaks=input$xbrks, date_labels=input$xlabs
-                )+
-                geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
-                                             y=1:epiymax, yend=1:epiymax), 
-                             aes(x=x, xend=xend, y=y, yend=yend),
-                             col="white")+
-                theme(
-                  legend.position="bottom",
-                  panel.grid.major = element_blank(),
-                  panel.grid.minor = element_blank(),
-                  axis.title.x=element_text(),
-                  axis.title.y=element_text(),
-                  axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
-                                           vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
-                  panel.background = element_rect(fill=NA, colour="black"))+
-                labs(x="Sample date", y="Count")
-            }
-
-          }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
-
-          output$epiplotWard<-renderPlot({
-            validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
-            
-            if((input$datrad=="dum" | !is.null(input$fileMvmt)) & input$mvmt==TRUE){
-              wardLay<-unique(datInf()[,c("wardId", "nFloor", "nWard")])
-            } else {
-              wardLay<-data.frame(
-                wardId=unique(datEpi()$wardSamp),
-                nFloor=rep(1:round(length(unique(datEpi()$wardSamp))/2),each=2)[1:length(unique(datEpi()$wardSamp))]
-              )
-              wardLay<-
-                wardLay %>%
-                group_by(nFloor) %>%
-                mutate(nWard=1:length(wardId))
-              
-              wardLay<-as.data.frame(wardLay)
-              wardLay$wardId<-as.character(wardLay$wardId)
-                      
-            }
-
-              wardLay$floorRev<-max(wardLay$nFloor)-wardLay$nFloor+1
-              wardLay<-
-                wardLay %>% arrange(nFloor, nWard)
-              lay<-matrix(ncol=max(wardLay$nWard), nrow=max(wardLay$nFloor))
-              lapply(1:nrow(wardLay), function(i){
-                lay[wardLay[i,"floorRev"],wardLay[i,"nWard"]]<<-wardLay[i,"wardId"]
-              })
-
-            epiymax<-max(datEpiFil()%>%
-                           group_by(grpTot, wardSamp) %>%
-                           summarise(tot=n()) %>%
-                           ungroup() %>%
-                           select(tot))
-            
-           
-            if(input$colByVarEpi==FALSE){
-            gs<-lapply(unique(wardLay[,"wardId"]), function(i){
-              ggplot(datEpiFil()[datEpiFil()[,"wardSamp"]==i,])+
-                geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
-                scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
-                scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
-                             date_breaks=input$xbrks, date_labels=input$xlabs
-                )+                ggtitle(i)+
-                geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
-                                             y=1:epiymax, yend=1:epiymax), 
-                             aes(x=x, xend=xend, y=y, yend=yend),
-                             col="white")+
-                theme(
-                  legend.position="none",
-                  panel.grid.major = element_blank(),
-                  panel.grid.minor = element_blank(),
-                  axis.title.x=element_text(),
-                  axis.title.y=element_text(),
-                  axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
-                                           vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
-                  panel.background = element_rect(fill=NA, colour="black"))+
-                labs(x="Sample date", y="Count")
-            })
-            grid.arrange(grobs=gs, layout_matrix=lay)
-            
-            } else{
-              gs<-lapply(unique(wardLay[,"wardId"]), function(i){
-                ggplot(datEpiFil()[datEpiFil()[,"wardSamp"]==i,])+
-                  geom_histogram(aes(x=samp, fill=datEpiFil()[datEpiFil()[,"wardSamp"]==i,input$plEpi]), 
-                                 breaks=as.numeric(brks()), col="white", closed="left")+
-                  scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
-                  scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-                  scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
-                               date_breaks=input$xbrks, date_labels=input$xlabs
-                  )+                  ggtitle(i)+
-                  geom_segment(data=data.frame(x=min(brks()), xend=max(brks()), 
-                                               y=1:epiymax, yend=1:epiymax), 
-                               aes(x=x, xend=xend, y=y, yend=yend),
-                               col="white")+
-                  theme(
-                    legend.position="none",
-                    panel.grid.major = element_blank(),
-                    panel.grid.minor = element_blank(),
-                    axis.title.x=element_text(),
-                    axis.title.y=element_text(),
-                    axis.text.x=element_text(angle=ifelse(input$vertLab==TRUE, 90, 0), 
-                                             vjust=ifelse(input$vertLab==TRUE, 0.2, 0)),
-                    panel.background = element_rect(fill=NA, colour="black"))+
-                  labs(x="Sample date", y="Count")
-              })
-              
-              legend<-gtable_filter(ggplot_gtable(ggplot_build(
-                ggplot(datEpiFil())+
-                  geom_histogram(aes(x=samp, fill=datEpiFil()[,input$plEpi]), binwidth = 1)+
-                  scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
-                  theme(legend.position="bottom"))), 
-                "guide-box")
-           gs<-arrangeGrob(grobs=gs, layout_matrix=lay)
-            grid.arrange(gs, legend, ncol=1, heights=c(10,1))
-            }
-
-        }, width=exprToFunction(input$plWid), height=exprToFunction(input$plHt))
-          
-    # Network
-          
-          # Inputs
-
-          ### patients included in network
-          
-          ## patient ids
-          output$filVarsNetUi<-renderUI({
-            selectInput("ptIdNet", label="Patient IDs to inlucde", 
-                        choices=unique(datNam$ptId), 
-                        selected=unique(datNam$ptId), 
-                        multiple=T)
-          })
-          outputOptions(output, "filVarsNetUi", suspendWhenHidden = FALSE)
-
-          ## Infection period and filter
-          datNet<-reactive({
-            datNet1<-as.data.frame(datNam)
-            datNet1$symStart<-datNet1$samp-input$sampDelNet
-            datNet1$expStart<-datNet1$symStart-input$incMaxNet
-            datNet1$expEnd<-datNet1$symStart-input$incMinNet
-            datNet1$infecEnd<-datNet1$symStart+input$infecLenNet
-            datNet1<-datNet1[datNet1$ptId%in%input$ptIdNet,]
-            
-            
-            datNet1
-          })
-          
-          pw<-reactive({
-            data.frame(
-              id1=combn(unique(datNet()[,"ptId"]),2)[1,],
-              id2=combn(unique(datNet()[,"ptId"]),2)[2,], 
-              days=NA
-            )
-            
-          })
-
-          ol1<-reactive({
-            if(input$netrad=="wardNet"){
-              ol<-vector("list", length(unique(datNet()$wardId)))
-              lapply(1:nrow(pw()), function(i){
-                j<<-pw()$id1[i]
-                k<<-pw()$id2[i]
-                
-                lapply(1:length(unique(datNet()$wardId)), function(n){
-                  m<<-unique(datNet()$wardId)[n]
-                  if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
-                     k %in% datNet()[datNet()$wardId==m, "ptId"]) {
-                    ol[[n]][i]<<-
-                      length(which(
-                        seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayIn"], 
-                            datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayOut"]-1, 1) %in%
-                          seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayIn"], 
-                              datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayOut"]-1, 1)
-                        
-                      ))  
-                  } else {
-                    ol[[n]][i]<<-0
-                  }
-                })
-              })
-              ol
-            } else if(input$netrad=="infNet"){
-              ol<-vector("list", length(unique(datNet()$wardId)))
-              lapply(1:nrow(pw()), function(i){
-                j<<-pw()$id1[i]
-                k<<-pw()$id2[i]
-                
-                lapply(1:length(unique(datNet()$wardId)), function(n){
-                  m<<-unique(datNet()$wardId)[n]
-                  if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
-                     k %in% datNet()[datNet()$wardId==m, "ptId"] &
-                     input$incMaxNet>=input$incMinNet) {
-                    ol[[n]][i]<<-
-                      length(which(
-                        (seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "expStart"], 
-                             datNet()[datNet()$wardId==m & datNet()$ptId==j, "expEnd"], 1) %in%
-                          seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "symStart"], 
-                              datNet()[datNet()$wardId==m & datNet()$ptId==k, "infecEnd"], 1)) |
-                          (seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "expStart"], 
-                               datNet()[datNet()$wardId==m & datNet()$ptId==k, "expEnd"], 1) %in%
-                             seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "symStart"], 
-                                 datNet()[datNet()$wardId==m & datNet()$ptId==j, "infecEnd"], 1))
-                      ))  
-                  } else {
-                    ol[[n]][i]<<-0
-                  }
-                })
-              })
-              
-              ol
-            }
-            
-          })
-
-          output$net <- renderVisNetwork({
-            validate(need(input$incMaxNet>=input$incMinNet, 
-                          "Maximum incubation period must not be shorter than minimum inubation period"))
-            validate(need(length(input$ptIdNet)>=2, "Please select at least two patients"))
-            validate(need(sum(do.call(cbind, ol1()))>=1, "No links between selected patients"))
-
-            
-            if(input$netrad%in%c("wardNet", "infNet")){
-              pw1<-pw()
-              pw1[,"days"]<-rowSums(do.call(cbind, ol1()))
-              
-              pw1<-pw1[pw1$days!=0,]
-              
-              pNodes<-data.frame(
-                id=unique(c(as.character(pw1$id1), as.character(pw1$id2)))
-              )
-              
-              pEdges<-data.frame(
-                from=pw1$id1,
-                to=pw1$id2,
-                value=pw1$days
-              )
-              
-              pEdges$width <- 1+pEdges$value/8 # line width
-              pEdges$color <- "gray"    # line color  
-              pEdges$arrows <- NULL # arrows: 'from', 'to', or 'middle'
-              pEdges$smooth <- FALSE    # should the edges be curved?
-              
-            }
-
-            net<-
-            visNetwork(pNodes, pEdges) %>%
-              visNodes(size=10) %>%
-              visInteraction(dragNodes = TRUE, 
-                             dragView = TRUE, 
-                             zoomView = TRUE,
-                             navigationButtons=TRUE) %>%
-              visLayout(randomSeed = 123) %>%
-              visOptions(highlightNearest = TRUE)
-           net
-            
-          })
-          
-          
-          
-          
-    # Timeline
-          
-          # Inputs
-          
-          ### patients included in time line
-          
-          ## patient ids
-          output$filVarsTimeUi<-renderUI({
-            selectInput("ptIdTime", label="Patient IDs to inlucde", 
-                        choices=unique(datNam$ptId), 
-                        selected=unique(datNam$ptId), 
-                        multiple=T)
-          })
-          outputOptions(output, "filVarsTimeUi", suspendWhenHidden = FALSE)
-
-          ## wards to display in plan
-          output$wardFilTimeUi<-renderUI({
-            if(input$datrad=="dum" | !is.null(input$fileMvmt) & input$mvmt==TRUE){
-              selectInput('wardFilTime', label="Select wards", 
-                          choices=unique(mvmtDat()[, input$wardid]), 
-                          selected=unique(mvmtDat()[, input$wardid]), 
-                          multiple=T)
-              
-            } else {
-              selectInput('wardFilTime', label="Select wards", 
-                          choices=unique(coreDat()[, input$wardSamp]), 
-                          selected=unique(coreDat()[, input$wardSamp]),
-                          multiple=T)
-            }
-          })
-          
-          
-          outputOptions(output, "wardFilTimeUi", suspendWhenHidden = FALSE)
-          
-          
-          
-      
-          # Infection period and filter
-          datTime<-reactive({
-            datTime1<-as.data.frame(datNam)
-  #          datTime1$symStart<-datTime1$samp-input$sampDelTime
-  #          datTime1$expStart<-datTime1$symStart-input$incMaxTime
-  #          datTime1$expEnd<-datTime1$symStart-input$incMinTime
-  #          datTime1$infecEnd<-datTime1$symStart+input$infecLenTime
-            datTime1<-datTime1[datTime1$ptId%in%input$ptIdTime,]
-            
-            if(!(length(input$ptIdTime)>=1 & length(input$wardFilTime>=1))){
-              datTime1
-            } else {
-                
-              
-            
-            datTime1<-
-              datTime1 %>%
-              filter(ptId %in% 
-                       (datTime1 %>%
-                          filter(wardId %in% input$wardFilTime)%>%
-                          distinct(ptId) %>% pull(ptId)
-                           ))
-            
-            suppressWarnings(
-              colRampT<-colorRampPalette(brewer.pal(length(levels(datTime1$wardId)), "Set1"))
-            )
-            
-            colsT<-colRampT(length(levels(datTime1$wardId)))
-            factpalT <- colorFactor(colsT, datTime1$wardId)
-            datTime1$col<- factpalT(datTime1$wardId)
-            
-            if (nrow(datTime1)>=1){
-              datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
-              
-              datTime1<-
-                datTime1 %>%
-                rename(group=ptId, start=dayIn, end=dayOut, content=wardId) %>%
-                mutate(type="range") %>%
-                select(group, content, start, end, style, type) 
-              
-            }
-            
-            datTime1
-            }
-          })
-          
-          ## Groups for time line
-          
-          tGrp<-reactive({
-            data.frame(
-            id=unique(datTime()$group),
-            content=unique(datTime()$group)
-          )
-          })
-          
-          ## Sample dates
-         
-
-          output$tl<-renderTimevis({
-            validate(need(nrow(datTime())>=1, "No data selected - check filters"))
-            validate(need(length(input$ptIdTime)>=1 & length(input$wardFilTime)>=1, "No data selected - check filters"))
-            timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE))
-          })
-          
-          delay(100,
-           observe({
-             datTLSamp<-reactive({
-               datTLSamp1<-as.data.frame(coreDatNam)
-               datTLSamp1<-datTLSamp1[datTLSamp1$ptId%in%input$ptIdTime,]
-               if(!(length(input$ptIdTime)>=1 & length(input$wardFilTime>=1))){
-                 datTLSamp1
-               } else {
-                 
-                 datTLSamp1<-
-                   datTLSamp1 %>%
-                   filter(ptId %in% 
-                            (datTLSamp1 %>%
-                               filter(wardSamp %in% input$wardFilTime)%>%
-                               distinct(ptId) %>% pull(ptId)
-                            )) %>%
-                   rename(group=ptId, start=samp) %>%
-                   mutate(style=NA, end=NA, type="point", content="") %>%
-                   mutate(id=paste0("sampl",1:n()))%>%
-                   #             rowwise() %>%
-                   #              mutate(id=paste(sample(c(letters, LETTERS, 0:9), 16, replace = TRUE), collapse = "")) %>%
-                   select(group, content, start, end, style, type, id)
-                 
-                 datTLSamp1}
-             })
-             
-                 
-             if(input$sampDat==TRUE & nrow(datTLSamp())>=1){
-               addItems("tl", data=datTLSamp())
-             } else if(nrow(datTLSamp())>=1) {
-               lapply(unique(datTLSamp()$id), function(i){
-                 removeItem("tl", itemId=i) 
-               })
-             }
-             
-          })
-          )
-
-          
-#          output$jazzytext<-renderText(sampDatDis())
-#          output$jazzytable<-renderTable(datTLSamp())
-    })
-    
-    # move focus to epicurves tab if gen button pressed
-    
-    observeEvent({
-      input$gen}, {
-        updateTabsetPanel(session, "pan", selected = "panEpi")
       })
-    })
+      ol
+      ## Exposure/ infectious periods
+    } else if(input$netrad=="infNet"){
+      ol<-vector("list", length(unique(datNet()$wardId)))
+      lapply(1:nrow(pw()), function(i){
+        j<<-pw()$id1[i]
+        k<<-pw()$id2[i]
+        lapply(1:length(unique(datNet()$wardId)), function(n){
+          m<<-unique(datNet()$wardId)[n]
+          if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
+             k %in% datNet()[datNet()$wardId==m, "ptId"] &
+             input$incMaxNet>=input$incMinNet) {
+            ol[[n]][i]<<-
+              length(which(
+                (seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "expStart"], 
+                     datNet()[datNet()$wardId==m & datNet()$ptId==j, "expEnd"], 1) %in%
+                   seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "symStart"], 
+                       datNet()[datNet()$wardId==m & datNet()$ptId==k, "infecEnd"], 1)) |
+                  (seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "expStart"], 
+                       datNet()[datNet()$wardId==m & datNet()$ptId==k, "expEnd"], 1) %in%
+                     seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "symStart"], 
+                         datNet()[datNet()$wardId==m & datNet()$ptId==j, "infecEnd"], 1))
+              ))  
+          } else {
+            ol[[n]][i]<<-0
+          }
+        })
+      })
+      
+      ol
+    }
+  })
+  
+  # Render network
+  
+  output$net <- renderVisNetwork({
+    validate(need(input$incMaxNet>=input$incMinNet, 
+                  "Maximum incubation period must not be shorter than minimum inubation period"))
+    validate(need(length(input$ptIdNet)>=2, "Please select at least two patients"))
+    validate(need(sum(do.call(cbind, ol1()))>=1, "No links between selected patients"))
     
-     
+    if(input$netrad%in%c("wardNet", "infNet")){
+      pw1<-pw()
+      ## Links are overlaps between patients
+      pw1[,"days"]<-rowSums(do.call(cbind, ol1()))
+      pw1<-pw1[pw1$days!=0,]
+      ## Nodes are patients
+      pNodes<-data.frame(
+        id=unique(c(as.character(pw1$id1), as.character(pw1$id2)))
+      )
+      ## Edges link nodes
+      pEdges<-data.frame(
+        from=pw1$id1,
+        to=pw1$id2,
+        value=pw1$days
+      )
+      pEdges$width <- 1+pEdges$value/8 # line width
+      pEdges$color <- "gray"    # line color  
+      pEdges$arrows <- NULL # arrows: 'from', 'to', or 'middle'
+      pEdges$smooth <- FALSE    # should the edges be curved?
+    }
+    ## Plot network
+    net<-
+      visNetwork(pNodes, pEdges) %>%
+      visNodes(size=10) %>%
+      visInteraction(dragNodes = TRUE, 
+                     dragView = TRUE, 
+                     zoomView = TRUE,
+                     navigationButtons=TRUE) %>%
+      visLayout(randomSeed = 123) %>%
+      visOptions(highlightNearest = TRUE)
+    net
+  })
+})
+  
+
+
+  
+
+
+
+  
+
+    

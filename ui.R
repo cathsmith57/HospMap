@@ -15,30 +15,50 @@ library(ggrepel)
 library(visNetwork)
 library(timevis)
 
+#----------------------------------------
+# Dashboard elements
+#----------------------------------------
+
 header <- dashboardHeader(title="HospMapper")
-
-
 sidebar <- dashboardSidebar(
   sidebarMenu(id="pan",
-    menuItem(text="Input", tabName = "panIn", icon = icon("database")),
-    menuItem(text="Epicurves", tabName = "panEpi", icon=icon("bar-chart")),
-    menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
-    menuItem(text="Network", tabName = "panNet", icon = icon("sitemap")),
-    menuItem(text="Timeline", tabName="panTime", icon=icon("clock-o")),
-    conditionalPanel(condition="input.pan=='panPl'",
-                     uiOutput("aspSliderUi")
-                     ), 
-    conditionalPanel(condition="input.pan=='panPl' | input.pan=='panEpi'",
-                     uiOutput("wardFilUi"),
-                     actionButton("goagain", "Update")   
-                     )
+              menuItem(text="About", tabName = "panAbt", icon = icon("info")),          
+              menuItem(text="Input", tabName = "panIn", icon = icon("database"), selected=TRUE),
+              menuItem(text="Bar chart", tabName = "panEpi", icon=icon("bar-chart")),
+              menuItem(text="Timeline", tabName="panTime", icon=icon("clock-o")),
+              menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
+              menuItem(text="Network", tabName = "panNet", icon = icon("sitemap")
+              )
+              )
   )
-)
 
 body <- dashboardBody(
-
   useShinyjs(),
   tabItems(
+    
+    #----------------------------------------
+    # About tab
+    #----------------------------------------
+    
+    tabItem(tabName="panAbt",
+            actionButton("goAbt", "Update"),
+            br(),
+            br(),
+            numericInput('incMinEx', label='Minimum incubation period (days)', 
+                         min=0, value=c(1)),
+            numericInput('incMaxEx', label='Maximum incubation period (days)', 
+                         min=0, value=4),
+            numericInput('sampDelEx', label='Sampling delay (days)', 
+                         min=0, value=1),
+            numericInput('infecLenEx', label='Infectious period (days)',
+                         min=0, value=4),
+            plotOutput("infecPlot", height=200)
+    ),
+    
+    #----------------------------------------
+    # Data input tab
+    #----------------------------------------
+    
     tabItem(tabName = "panIn",
             fluidRow(
               column(width=6,
@@ -58,25 +78,25 @@ body <- dashboardBody(
                                                       uiOutput("sampledateUi"),
                                                       uiOutput("wardSampUi"),
                                                       uiOutput("catvarUi")
-                                                      )  
+                                     )  
                             ),
-                            tabPanel(title="Movements", value="wardTab",
+                            tabPanel(title="Transitions", value="wardTab",
                                      conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
                                                       uiOutput("wardPtUi"),
                                                       uiOutput("wardidUi"),
                                                       uiOutput("dayinUi"),
                                                       uiOutput("dayoutUi"), 
                                                       uiOutput("floorUi")
-                                                     )
+                                     )
                             ),
                             tabPanel(title="Genetic distance", value="genTab", 
                                      conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
                                                       uiOutput("genPt1Ui"),
                                                       uiOutput("genPt2Ui"),
                                                       uiOutput("genPtDistUi")
-                                                      )
                                      )
                             )
+                     )
               ),
               column(width=6, 
                      box(title="Select files", width=NULL, status="primary", solidHeader=TRUE, 
@@ -84,7 +104,7 @@ body <- dashboardBody(
                                           tags$div(class="header", checked=NA,
                                                    tags$p("Core patient data")),
                                           fileInput('fileCore', label=NULL, accept=c("csv"))),
-                         checkboxInput("mvmt", label="Patient ward movements", value=F),
+                         checkboxInput("mvmt", label="Patient ward transitions", value=F),
                          conditionalPanel(condition="input.mvmt & input.datrad=='user'", 
                                           fileInput("fileMvmt", label=NULL, accept=c("csv"))),
                          checkboxInput("genDis", label="Genetic distance", value=F), 
@@ -94,106 +114,34 @@ body <- dashboardBody(
                      tabBox(title="Preview data",width=NULL, side="left", 
                             tabPanel(title="Core", value="corePrev",
                                      conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
-                                                      div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
-                                                          tableOutput('previewCore')))
+                                                      div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
+                                                          dataTableOutput('previewCore')))
                             ),
-                            tabPanel(title="Movement", value="mvmtPrev",
+                            tabPanel(title="Transitions", value="mvmtPrev",
                                      conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
-                                                      div(style = 'overflow-x: scroll; height:300px; overflow-y: scroll', 
-                                                          tableOutput('previewMvmt')))
+                                                      div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
+                                                          dataTableOutput('previewMvmt')))
                             ),
                             tabPanel(title="Genetic distance", value="genPrev", 
                                      conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                      div(style='overflow-x: scroll; height:300px; overflow-y: scroll', 
-                                                          tableOutput('previewGen')))
-                                     )
+                                                      div(style='overflow-x: scroll; height:500px; overflow-y: scroll', 
+                                                          dataTableOutput('previewGen')))
                             )
                      )
               )
-    ),
-
-    tabItem(tabName = "panPl", 
-            fluidRow(
-              column(width=4,
-                     tabBox(width=NULL,
-                            tabPanel(title="Display", value="disTab",
-                                     uiOutput("dayUi"),
-                                     checkboxGroupInput("planOpts", label = "Display",
-                                                        choices=c(
-                                                          "Ward labels" = "wardLabShow", 
-                                                          "Epidemiological links" = "lnk", 
-                                                          "Colour by patient characteristics" = "colByVar"),
-                                                        selected="colByVar"),
-                                     conditionalPanel(condition="input.planOpts.includes('colByVar')",
-                                                      selectizeInput('pl', label='Characteristic', 
-                                                                     choices=c("ptId","infec","acq"),
-                                                                     options=list(
-                                                                       placeholder="Select variable",
-                                                                       onInitialize = I('function(){this.setValue("ptId");}')
-                                                                     )
-                                                      ),
-                                                      conditionalPanel(condition="input.pl=='infec'",
-
-                                                                       numericInput('incMin', label='Minimum incubation period (days)', 
-                                                                                   min=0, value=c(1)),
-                                                                       numericInput('incMax', label='Maximum incubation period (days)', 
-                                                                                    min=0, value=4),
-                                                                       numericInput('sampDel', label='Sampling delay (days)', 
-                                                                                   min=0, value=1),
-                                                                       numericInput('infecLen', label='Infectious period (days)',
-                                                                                   min=0, value=4)
-                                                      ), 
-                                                      conditionalPanel(condition="input.pl=='acq'",
-                                                                       tags$div(class="header", checked=NA,
-                                                                                tags$strong("Define hospital acquired infection"), 
-                                                                                tags$p("Days from admission to sample")
-                                                                                ),
-                                                                       sliderInput('hospAcqLen', label=NA, 
-                                                                                   min=1, max=5, value=1, step=1)
-                                                      ),
-                                                      conditionalPanel(condition="input.pl=='gendis'",
-                                                                       uiOutput("genDIndexUi"),
-                                                                       uiOutput("genDistUi")
-                                                      )
-                                     )
-          
-                            ),
-                            tabPanel(title="Filter", value="filTab",
-                                     uiOutput("ptidFilUi"),
-                                     selectInput("acqFil", label="Place acquired", 
-                                                 choices=c("Hospital", "Community"), 
-                                                 selected=c("Hospital", "Community"), multiple=T),
-                                     selectInput("infec", label="Infection period", 
-                                                 choices=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
-                                                           "InfectiousPeriod", "PostInfectious"),
-                                                 selected=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
-                                                            "InfectiousPeriod", "PostInfectious"),
-                                                 multiple=T),
-                                     uiOutput("filVarsUi"), 
-                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                      selectInput('genDFil', label="Genetic distance",
-                                                                  choices=c("Index", "Yes", "No"), 
-                                                                  selected=c("Index", "Yes", "No"), multiple=T)
-                                                      )
-                                     )
-                            )
-              ),
-              column(width=8,
-                     box(width=NULL, status="primary",
-                         uiOutput("mapInUi"),
-                         tags$style(type='text/css', '#map {background: #F0F0F0;}'),
-                         tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
-                         leafletOutput("map", width="100%", height=500)
-                         ), 
-                     conditionalPanel(condition="input.pl=='infec'",
-                                      plotOutput("infecPlot", height=200))
-              )
             )
     ),
-    
+        
+    #----------------------------------------
+    # Epidemic curve tab
+    #----------------------------------------
+
     tabItem(tabName="panEpi",
             fluidRow(
               column(width=4, 
+                     actionButton("goEpi", "Update"),  
+                     br(),
+                     br(),
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disEpiTab", 
                                      numericInput("binwid", label="Bar width (days)", 
@@ -206,8 +154,8 @@ body <- dashboardBody(
                                                    "two weeks" = "2 weeks",
                                                    "month" = "1 month", 
                                                    "quarter" = "4 months"
-                                                   ), selected="1 week"
-                                                 ),
+                                                 ), selected="1 week"
+                                     ),
                                      selectInput("xlabs", label="x axis labels", 
                                                  choices=c(
                                                    "day" = "%d", 
@@ -216,7 +164,7 @@ body <- dashboardBody(
                                                    "month-year" = "%b %y", 
                                                    "year" = "%Y"
                                                  ), selected="%d %b"
-                                                 ),
+                                     ),
                                      checkboxInput("vertLab", label="Vertical x axis labels", value=F),
                                      sliderInput("plWid", label="Plot width (px)", min=50, max=1000, value=400),
                                      sliderInput("plHt", label="Plot height (px)", min=50, max=1000, value=400), 
@@ -236,87 +184,218 @@ body <- dashboardBody(
                                                                        ),
                                                                        sliderInput('hospAcqLenEpi', label=NA, 
                                                                                    min=1, max=5, value=1, step=1)
-                                                                       )
                                                       )
-                                     ),
+                                     )
+                            ),
                             tabPanel(title="Filter", value="filEpiTab", 
                                      uiOutput("epidatesUi"),
                                      selectInput("acqFilEPi", label="Place acquired", 
                                                  choices=c("Hospital", "Community"), 
                                                  selected=c("Hospital", "Community"), multiple=T),
+                                     uiOutput("wardEpiUi"),
                                      uiOutput("filVarsEpiUi")
-                                     )
+                            )
                      )
               ),
               column(width=8,
-                     tabBox(width=NULL, 
-                            tabPanel(title="All", value="epiAll",
-                                     plotOutput("epiplotAll", height="auto")),
-                            tabPanel(title="Ward", value="epiWard", 
-                                     plotOutput("epiplotWard", height="auto"))
+                     box(width=NULL, status="primary", 
+                         value="epiAll",
+                         plotOutput("epiplotAll", height="auto")
                      )
-  #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"),
-   #                      tableOutput("jazzytable1"), tableOutput("jazzytable2"))
+              )
+            )
+    ),
+    
+    #----------------------------------------
+    # Timeline tab
+    #----------------------------------------
+    
+    tabItem(tabName = "panTime", 
+            fluidRow(
+              column(width=4, 
+                     actionButton("goTime", "Update"),  
+                     br(),
+                     br(),
+                     tabBox(width=NULL,
+                            tabPanel(title="Display", value="disTimeTab", 
+                                     checkboxInput("timeLab", label="Labels", value=TRUE),
+                                     radioButtons("orderTL", label="Order by:", 
+                                                  choices=c("Admission date"= "admTL", 
+                                                            "Sample date"="sampTL")),
+                                     selectizeInput('plTime', label='Characteristic', 
+                                                    choices=c("ward", "infec", "acq"),
+                                                    options=list(
+                                                      placeholder="Select variable",
+                                                      onInitialize = I('function(){this.setValue("ward");}')
+                                                    )
+                                     ),
+                                     conditionalPanel(condition="input.plTime=='infec'",
+                                                      numericInput('incMinTime', label='Minimum incubation period (days)', 
+                                                                   min=0, value=c(1)),
+                                                      numericInput('incMaxTime', label='Maximum incubation period (days)', 
+                                                                   min=0, value=4),
+                                                      numericInput('sampDelTime', label='Sampling delay (days)', 
+                                                                   min=0, value=1),
+                                                      numericInput('infecLenTime', label='Infectious period (days)',
+                                                                   min=0, value=4)
+                                     ), 
+                                     conditionalPanel(condition="input.plTime=='acq'",
+                                                      tags$div(class="header", checked=NA,
+                                                               tags$strong("Define hospital acquired infection"), 
+                                                               tags$p("Days from admission to sample")
+                                                      ),
+                                                      sliderInput('hospAcqLenTime', label=NA, 
+                                                                  min=1, max=5, value=1, step=1)
+                                     )
+                            ),
+                            tabPanel(title="Filter", value="filTimeTab",
+                                     tags$style(type='text/css', " #filIDTimeUi .selectize-input { font-size: 12px; line-height: 10px;} #filIDTimeUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
+                                     uiOutput("wardFilTimeUi"),
+                                     uiOutput("filVarsTimeUi"),
+                                     uiOutput("filIDTimeUi")
+                                     
+                            ))),
+              column(width=8,
+                     box(width=NULL,
+                         status="primary",
+                         tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;overflow-x: scroll; height:500px; overflow-y: scroll}
+                                    #tl .vis-item.vis-dot {border-color:black}
+                                    "),
+                         timevisOutput("tl",height = 500, width="100%")
+                         #                   textOutput("jazzytext")
+                         #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable")),
+                         #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1"))
+                     )
               )
             )
     ),
 
-  tabItem(tabName = "panNet", 
-          fluidRow(
-            column(width=4, 
-                   tabBox(width=NULL,
-                          tabPanel(title="Display", value="disNetTab", 
-                                   radioButtons("netrad", label="Network links", 
-                                                choices=c("Ward day overlap"= "wardNet", 
-                                                          "Infection period overlap"="infNet")),
-                                   conditionalPanel(condition="input.netrad=='infNet'",
-                                                    numericInput('incMinNet', label='Minimum incubation period (days)', 
-                                                                 min=0, value=c(1)),
-                                                    numericInput('incMaxNet', label='Maximum incubation period (days)', 
-                                                                 min=0, value=4),
-                                                    numericInput('sampDelNet', label='Sampling delay (days)', 
-                                                                 min=0, value=1),
-                                                    numericInput('infecLenNet', label='Infectious period (days)',
-                                                                 min=0, value=4))
-                                   ),
-                          tabPanel(title="Filter", value="filNetTab", 
-                                   uiOutput("filVarsNetUi")
-                                   ))),
-            column(width=8,
-                   box(width=NULL,
-                   status="primary",
-                   tags$style(type = "text/css", "#net {height: calc(100vh - 80px) !important;}"),
-                   visNetworkOutput("net",height = 500, width="100%")
+    #----------------------------------------
+    # Plan tab
+    #----------------------------------------
+    
+    tabItem(tabName = "panPl", 
+            fluidRow(
+              column(width=4,
+                     actionButton("goPl", "Update"),  
+                     br(),
+                     br(),
+                     tabBox(width=NULL,
+                            tabPanel(title="Display", value="disTab",
+                                     uiOutput("wardFilUi"),  
+                                     uiOutput("aspSliderUi"),
+                                     uiOutput("dayUi"),
+                                     checkboxGroupInput("planOpts", label = "Display",
+                                                        choices=c(
+                                                          "Ward labels" = "wardLabShow", 
+                                                          "Epidemiological links" = "lnk", 
+                                                          "Colour by patient characteristics" = "colByVar")
+                                     ),
+                                     conditionalPanel(condition="input.planOpts.includes('colByVar')",
+                                                      selectizeInput('pl', label='Characteristic', 
+                                                                     choices=c("ptId","infec","acq"),
+                                                                     options=list(
+                                                                       placeholder="Select variable",
+                                                                       onInitialize = I('function(){this.setValue("infec");}')
+                                                                     )
+                                                      ),
+                                                      conditionalPanel(condition="input.pl=='infec'",
+                                                                       numericInput('incMin', label='Minimum incubation period (days)', 
+                                                                                    min=0, value=c(1)),
+                                                                       numericInput('incMax', label='Maximum incubation period (days)', 
+                                                                                    min=0, value=4),
+                                                                       numericInput('sampDel', label='Sampling delay (days)', 
+                                                                                    min=0, value=1),
+                                                                       numericInput('infecLen', label='Infectious period (days)',
+                                                                                    min=0, value=4)
+                                                      ), 
+                                                      conditionalPanel(condition="input.pl=='acq'",
+                                                                       tags$div(class="header", checked=NA,
+                                                                                tags$strong("Define hospital acquired infection"), 
+                                                                                tags$p("Days from admission to sample")
+                                                                       ),
+                                                                       sliderInput('hospAcqLen', label=NA, 
+                                                                                   min=1, max=5, value=1, step=1)
+                                                      ),
+                                                      conditionalPanel(condition="input.pl=='gendis'",
+                                                                       uiOutput("genDIndexUi"),
+                                                                       uiOutput("genDistUi")
+                                                      )
+                                     )
+                            ),
+                            tabPanel(title="Filter", value="filTab",
+                                     tags$style(type='text/css', " #ptidFilUi .selectize-input { font-size: 12px; line-height: 10px;} #ptidFilUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
+                                     uiOutput("ptidFilUi"),
+                                     selectInput("acqFil", label="Place acquired", 
+                                                 choices=c("Hospital", "Community"), 
+                                                 selected=c("Hospital", "Community"), multiple=T),
+                                     selectInput("infec", label="Infection period", 
+                                                 choices=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
+                                                           "InfectiousPeriod", "PostInfectious"),
+                                                 selected=c("PreExposure", "ExposurePeriod", "IncubationPeriod",
+                                                            "InfectiousPeriod", "PostInfectious"),
+                                                 multiple=T),
+                                     uiOutput("filVarsUi"), 
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                      selectInput('genDFil', label="Genetic distance",
+                                                                  choices=c("Index", "Yes", "No"), 
+                                                                  selected=c("Index", "Yes", "No"), multiple=T)
+                                     )
+                            )
+                     )
+              ),
+              column(width=8,
+                     box(width=NULL, status="primary",
+                         uiOutput("mapInUi"),
+                         tags$style(type='text/css', '#map {background: #F0F0F0;}'),
+                         tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
+                         leafletOutput("map", width="100%", height=500)
+                     ),
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable")),
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1")),
+                     textOutput("jazzytext")  
+              )
             )
-          )
-  )
-),
-tabItem(tabName = "panTime", 
-        fluidRow(
-          column(width=4, 
-                 tabBox(width=NULL,
-                        tabPanel(title="Display", value="disTimeTab", 
-  #                               actionButton("addSampDat", label="Show saample date"),
-  #                               actionButton("remSampDat", label="Remove sample date")
-                                 checkboxInput("sampDat", label="Sample date", value=FALSE)
-                        ),
-                        tabPanel(title="Filter", value="filTimeTab",
-                                 uiOutput("filVarsTimeUi"), 
-                                 uiOutput("wardFilTimeUi")
-                        ))),
-          column(width=8,
-                 box(width=NULL,
-                     status="primary",
-                     tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;}
-                                #tl .vis-item.vis-dot {border-color:black}
-                                "),
-                     timevisOutput("tl",height = 500, width="100%")
- #                    textOutput("jazzytext")
- #                    div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
-                 )
-          )
-        )
-)
-))
+    ),
+    
+    #----------------------------------------
+    # Network tab
+    #----------------------------------------
+    
+    tabItem(tabName = "panNet", 
+            fluidRow(
+              column(width=4, 
+                     actionButton("goNet", "Update"),  
+                     br(),
+                     br(),
+                     tabBox(width=NULL,
+                            tabPanel(title="Display", value="disNetTab", 
+                                     radioButtons("netrad", label="Network links", 
+                                                  choices=c("Ward day overlap"= "wardNet", 
+                                                            "Infection period overlap"="infNet")),
+                                     conditionalPanel(condition="input.netrad=='infNet'",
+                                                      numericInput('incMinNet', label='Minimum incubation period (days)', 
+                                                                   min=0, value=c(1)),
+                                                      numericInput('incMaxNet', label='Maximum incubation period (days)', 
+                                                                   min=0, value=4),
+                                                      numericInput('sampDelNet', label='Sampling delay (days)', 
+                                                                   min=0, value=1),
+                                                      numericInput('infecLenNet', label='Infectious period (days)',
+                                                                   min=0, value=4))
+                            ),
+                            tabPanel(title="Filter", value="filNetTab", 
+                                     tags$style(type='text/css', " #filVarsNetUi .selectize-input { font-size: 12px; line-height: 10px;} #filVarsNetUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
+                                     uiOutput("filVarsNetUi")
+                            ))),
+              column(width=8,
+                     box(width=NULL,
+                         status="primary",
+                         tags$style(type = "text/css", "#net {height: calc(100vh - 80px) !important;}"),
+                         visNetworkOutput("net",height = 500, width="100%")
+                     )
+              )
+            )
+    )
+  ))
 
-  dashboardPage(header, sidebar, body)
+dashboardPage(header, sidebar, body)
