@@ -874,7 +874,6 @@ shinyServer(function(input, output, session) {
         factpal <- colorFactor(cols, datEpi1[,input$plEpi])
         datEpi1$colEpi<- factpal(datEpi1[,input$plEpi])
       }
-      
     }
     as.data.frame(datEpi1)
   })
@@ -1686,13 +1685,25 @@ shinyServer(function(input, output, session) {
           m<<-unique(datNet()$wardId)[n]
           if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
              k %in% datNet()[datNet()$wardId==m, "ptId"]) {
+            
+            jDat<<-
+              do.call("c",
+                      lapply(1:nrow(datNet()[datNet()$wardId==m & datNet()$ptId==j,]), function(o){
+                        seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayIn"][o],
+                            datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayOut"][o], 1)
+                      })
+              )
+            kDat<<-
+              do.call("c",
+                      lapply(1:nrow(datNet()[datNet()$wardId==m & datNet()$ptId==k,]), function(o){
+                        seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayIn"][o],
+                            datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayOut"][o], 1)
+                      })
+              )
+            
             ol[[n]][i]<<-
-              length(which(
-                seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayIn"], 
-                    datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayOut"], 1) %in%
-                  seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayIn"], 
-                      datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayOut"], 1)
-              ))  
+              length(which(jDat %in% kDat))
+  
           } else {
             ol[[n]][i]<<-0
           }
@@ -1710,17 +1721,35 @@ shinyServer(function(input, output, session) {
           if(j %in%  datNet()[datNet()$wardId==m, "ptId"] & 
              k %in% datNet()[datNet()$wardId==m, "ptId"] &
              input$incMaxNet>=input$incMinNet) {
+            
+            jExp<<-seq(datNet()[datNet()$ptId=="pt1","expStart"][1], datNet()[datNet()$ptId=="pt1","expEnd"][1], 1)
+            jDat<<-
+              do.call("c",
+                      lapply(1:nrow(datNet()[datNet()$wardId==m & datNet()$ptId==j,]), function(o){
+                        seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayIn"][o],
+                            datNet()[datNet()$wardId==m & datNet()$ptId==j, "dayOut"][o], 1)
+                      })
+              )
+            jDat1<<-jDat[which(jDat%in%jExp)]
+            jInfec<<-seq(datNet()[datNet()$ptId==j,"symStart"][1], datNet()[datNet()$ptId==j,"infecEnd"][1], 1)
+            jDat2<<-jDat[which(jDat%in%jInfec)]
+            
+            kExp<<-seq(datNet()[datNet()$ptId==k,"expStart"][1], datNet()[datNet()$ptId==k,"expEnd"][1], 1)
+            kDat<<-
+              do.call("c",
+                      lapply(1:nrow(datNet()[datNet()$wardId==m & datNet()$ptId==k,]), function(o){
+                        seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayIn"][o],
+                            datNet()[datNet()$wardId==m & datNet()$ptId==k, "dayOut"][o], 1)
+                      })
+              )
+            kDat1<<-kDat[which(kDat%in%kExp)]
+            kInfec<<-seq(datNet()[datNet()$ptId==k,"symStart"][1], datNet()[datNet()$ptId==k,"infecEnd"][1], 1)
+            kDat2<<-kDat[which(kDat%in%kInfec)]
+            
             ol[[n]][i]<<-
-              length(which(
-                (seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "expStart"], 
-                     datNet()[datNet()$wardId==m & datNet()$ptId==j, "expEnd"], 1) %in%
-                   seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "symStart"], 
-                       datNet()[datNet()$wardId==m & datNet()$ptId==k, "infecEnd"], 1)) |
-                  (seq(datNet()[datNet()$wardId==m & datNet()$ptId==k, "expStart"], 
-                       datNet()[datNet()$wardId==m & datNet()$ptId==k, "expEnd"], 1) %in%
-                     seq(datNet()[datNet()$wardId==m & datNet()$ptId==j, "symStart"], 
-                         datNet()[datNet()$wardId==m & datNet()$ptId==j, "infecEnd"], 1))
-              ))  
+              length(which(jDat1%in%kDat2)) + length(which(jDat2%in%kDat1))
+            
+ 
           } else {
             ol[[n]][i]<<-0
           }
