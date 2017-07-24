@@ -12,6 +12,7 @@ library(lubridate)
 library(gtable)
 library(sp)
 library(ggrepel)
+
 library(visNetwork)
 library(timevis)
 
@@ -324,8 +325,6 @@ body <- dashboardBody(
                                      )
                             ),
                             tabPanel(title="Filter", value="filTab",
-                                     tags$style(type='text/css', " #ptidFilUi .selectize-input { font-size: 12px; line-height: 10px;} #ptidFilUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
-                                     uiOutput("ptidFilUi"),
                                      selectInput("acqFil", label="Place acquired", 
                                                  choices=c("Hospital", "Community"), 
                                                  selected=c("Hospital", "Community"), multiple=T),
@@ -340,7 +339,9 @@ body <- dashboardBody(
                                                       selectInput('genDFil', label="Genetic distance",
                                                                   choices=c("Index", "Yes", "No"), 
                                                                   selected=c("Index", "Yes", "No"), multiple=T)
-                                     )
+                                     ), 
+                                     tags$style(type='text/css', " #ptidFilUi .selectize-input { font-size: 12px; line-height: 10px;} #ptidFilUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
+                                     uiOutput("ptidFilUi")
                             )
                      )
               ),
@@ -350,10 +351,10 @@ body <- dashboardBody(
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
                          tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                          leafletOutput("map", width="100%", height=500)
-                     ),
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable")),
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1")),
-                     textOutput("jazzytext")  
+                     )
+#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable")),
+#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1")),
+#                     textOutput("jazzytext")  
               )
             )
     ),
