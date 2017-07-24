@@ -12,8 +12,6 @@ library(lubridate)
 library(gtable)
 library(sp)
 library(ggrepel)
-
-library(visNetwork)
 library(timevis)
 
 #----------------------------------------
@@ -27,9 +25,7 @@ sidebar <- dashboardSidebar(
               menuItem(text="Input", tabName = "panIn", icon = icon("database"), selected=TRUE),
               menuItem(text="Bar chart", tabName = "panEpi", icon=icon("bar-chart")),
               menuItem(text="Timeline", tabName="panTime", icon=icon("clock-o")),
-              menuItem(text="Plan", tabName = "panPl", icon = icon("building")),
-              menuItem(text="Network", tabName = "panNet", icon = icon("sitemap")
-              )
+              menuItem(text="Plan", tabName = "panPl", icon = icon("building"))
               )
   )
 
@@ -357,46 +353,8 @@ body <- dashboardBody(
 #                     textOutput("jazzytext")  
               )
             )
-    ),
-    
-    #----------------------------------------
-    # Network tab
-    #----------------------------------------
-    
-    tabItem(tabName = "panNet", 
-            fluidRow(
-              column(width=4, 
-                     actionButton("goNet", "Update"),  
-                     br(),
-                     br(),
-                     tabBox(width=NULL,
-                            tabPanel(title="Display", value="disNetTab", 
-                                     radioButtons("netrad", label="Network links", 
-                                                  choices=c("Ward day overlap"= "wardNet", 
-                                                            "Infection period overlap"="infNet")),
-                                     conditionalPanel(condition="input.netrad=='infNet'",
-                                                      numericInput('incMinNet', label='Minimum incubation period (days)', 
-                                                                   min=0, value=c(1)),
-                                                      numericInput('incMaxNet', label='Maximum incubation period (days)', 
-                                                                   min=0, value=4),
-                                                      numericInput('sampDelNet', label='Sampling delay (days)', 
-                                                                   min=0, value=1),
-                                                      numericInput('infecLenNet', label='Infectious period (days)',
-                                                                   min=0, value=4))
-                            ),
-                            tabPanel(title="Filter", value="filNetTab", 
-                                     tags$style(type='text/css', " #filVarsNetUi .selectize-input { font-size: 12px; line-height: 10px;} #filVarsNetUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
-                                     uiOutput("filVarsNetUi")
-                            ))),
-              column(width=8,
-                     box(width=NULL,
-                         status="primary",
-                         tags$style(type = "text/css", "#net {height: calc(100vh - 80px) !important;}"),
-                         visNetworkOutput("net",height = 500, width="100%")
-                     )
-              )
-            )
     )
+
   ))
 
 dashboardPage(header, sidebar, body)
