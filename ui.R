@@ -284,8 +284,7 @@ body <- dashboardBody(
                                      uiOutput("dayUi"),
                                      checkboxGroupInput("planOpts", label = "Display",
                                                         choices=c(
-                                                          "Ward labels" = "wardLabShow", 
-                                                          "Epidemiological links" = "lnk", 
+                                                          "Ward labels" = "wardLabShow",  
                                                           "Colour by patient characteristics" = "colByVar")
                                      ),
                                      conditionalPanel(condition="input.planOpts.includes('colByVar')",
@@ -328,6 +327,11 @@ body <- dashboardBody(
                             tabPanel(title="Links", value="lnkTab", 
                                      p(strong("Click to select case")),
                                      textOutput("indexId"),
+                                     checkboxGroupInput("lnkDis", label = "",
+                                                        choices=c(
+                                                          "Potentially infected by" = "lnkInfecBy",
+                                                          "Potentially infected" = "lnkInfected")
+                                     ),
                                      p(strong("Epidemiological links")),
                                      numericInput('incMin', label='Minimum incubation period (days)', 
                                                   min=0, value=c(1)),
@@ -351,8 +355,8 @@ body <- dashboardBody(
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
                          tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                          leafletOutput("map", width="100%", height=500)
-                     )
-#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable")),
+                     ),
+                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
 #                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1")),
 #                     textOutput("jazzytext")  
               )

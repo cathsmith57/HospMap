@@ -766,12 +766,11 @@ shinyServer(function(input, output, session) {
       ### Genetic distance (if used) 
       if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
         #### Colour points option
-        updateCheckboxGroupInput(session, "planOpts",
+        updateCheckboxGroupInput(session, "lnkDis",
                                  choices=c(
-                                   "Ward labels" = "wardLabShow", 
-                                   "Epidemiological links" = "lnk", 
-                                   "Genetic links" = "lnkGen",
-                                   "Colour by patient characteristics" = "colByVar")
+                                   "Potentially infected by" = "lnkInfecBy",
+                                   "Potentially infected" = "lnkInfected", 
+                                   "Genetic links" = "lnkGen")
         ) 
         updateSelectizeInput(session, "pl", choices=c(
           "Infection period" = "infec", 
@@ -1591,12 +1590,10 @@ shinyServer(function(input, output, session) {
   })
   
 
-  
-  
-  
   # Link lines
-  ## Epidemiological (infection period) links
-  lnkLine<-reactive({
+  ## Epidemiological (infection period) links 
+  ### Potentially infected BY:
+  lnkInfecByLine<-reactive({
     lnkLin1<-as.data.frame(datFil())
     lnkLin1$nlink<-NA
     for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="ExposurePeriod"]))){
@@ -1613,12 +1610,35 @@ shinyServer(function(input, output, session) {
         lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
         lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
       }
-      lnk
+      lnk[lnk$ptId==indexIdDis(),]
     } else {NULL}
   })
-  ## Genetic links
   
-#  output$indexId<-renderText({paste0("Selected ID: ",input$map_marker_click$id)})
+
+  ### Potentially infecTED:
+  lnkInfectedLine<-reactive({
+    lnkLin1<-as.data.frame(datFil())
+    lnkLin1$nlink<-NA
+    for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="InfectiousPeriod"]))){
+      ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+      lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod"),])
+    }
+    if(sum(lnkLin1$nlink, na.rm=T)>0){
+      lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+      lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+      lnk$x1<-NA
+      lnk$y1<-NA
+      for(i in unique(lnk$ptId)){
+        ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+        lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod")]
+        lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod")]
+      }
+      lnk[lnk$ptId==indexIdDis(),]
+    } else {NULL}
+  })
+  
+  
+  ## Genetic links
   
   lnkGenLine<-reactive({
     lnkLin1<-as.data.frame(datFil())
@@ -1642,23 +1662,39 @@ shinyServer(function(input, output, session) {
   })
   ## Add links to plan
   observe({
-    if("lnk" %in% input$planOpts){
+    if("lnkInfecBy" %in% input$lnkDis){
       map<-leafletProxy("map")
-      if(!is.null(lnkLine())){
-        map<-map%>%clearGroup("lnks")
-        for(i in 1:nrow(lnkLine())){
+      if(!is.null(lnkInfecByLine())){
+        map<-map%>%clearGroup("lnksInfecBy")
+        for(i in 1:nrow(lnkInfecByLine())){
           map %>%
-            addPolylines(lng=as.numeric(lnkLine()[i,c("x","x1")]), 
-                         lat=as.numeric(lnkLine()[i,c("y","y1")]), group="lnks",
+            addPolylines(lng=as.numeric(lnkInfecByLine()[i,c("x","x1")]), 
+                         lat=as.numeric(lnkInfecByLine()[i,c("y","y1")]), group="lnksInfecBy",
                          color="red", opacity=0.5)
         }
-      } else {map %>%clearGroup("lnks")}
+      } else {map %>%clearGroup("lnksInfecBy")}
     } else{
       map<-leafletProxy("map")
       map %>%
-        clearGroup("lnks")
+        clearGroup("lnksInfecBy")
     }
-    if("lnkGen" %in% input$planOpts){
+    if("lnkInfected" %in% input$lnkDis){
+      map<-leafletProxy("map")
+      if(!is.null(lnkInfectedLine())){
+        map<-map%>%clearGroup("lnkInfected")
+        for(i in 1:nrow(lnkInfectedLine())){
+          map %>%
+            addPolylines(lng=as.numeric(lnkInfectedLine()[i,c("x","x1")]), 
+                         lat=as.numeric(lnkInfectedLine()[i,c("y","y1")]), group="lnkInfected",
+                         color="red", opacity=0.5)
+        }
+      } else {map %>%clearGroup("lnkInfected")}
+    } else{
+      map<-leafletProxy("map")
+      map %>%
+        clearGroup("lnkInfected")
+    }
+    if("lnkGen" %in% input$lnkDis){
       map<-leafletProxy("map")
       if(!is.null(lnkGenLine())){
         map<-map%>%clearGroup("lnksGen")
