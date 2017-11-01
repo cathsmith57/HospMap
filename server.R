@@ -538,6 +538,7 @@ shinyServer(function(input, output, session) {
                     )
     }
   })
+
   
   #----------------------------------------
   # Go button
@@ -761,6 +762,7 @@ shinyServer(function(input, output, session) {
                             selected=levels(coreDat$coreDatNam[,input$catvars[i]]))
         })
       }
+      
       ### Genetic distance (if used) 
       if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
         #### Colour points option
@@ -788,8 +790,8 @@ shinyServer(function(input, output, session) {
         #### genetic distance cutoff
         output$genDistUi<-renderUI({
           sliderInput('genDist', label= 'Genetic distance', 
-                      min=min(genDat$genDatNam[,'dist']), max=max(genDat$genDatNam[,'dist']), 
-                      value=min(genDat$genDatNam[,'dist']))
+                      min=min(genDat$genDatNam[,'dist'], na.rm=T), max=max(genDat$genDatNam[,'dist'], na.rm=T), 
+                      value=min(genDat$genDatNam[,'dist'], na.rm=T))
         })
         outputOptions(output, 'genDistUi', suspendWhenHidden=FALSE)
       }
@@ -1357,13 +1359,42 @@ shinyServer(function(input, output, session) {
     })
   
   # Generate variables for plotting
+  
+  ## index case
+  ### set initial value as first in data
+  values <- reactiveValues(default = 0)
+  
+  observeEvent(input$map_marker_click,{
+    values$default <- input$map_marker_click$id
+  })
+  
+  indexId <- eventReactive(input$map_marker_click, {
+    input$map_marker_click$id
+  })
+  
+  indexIdDis<-reactive({
+    if(values$default == 0){
+      genDat$genDatNam$ptId1[1]
+    } else{
+      indexId()
+    }
+  })
+  
+  output$indexId<-renderText({
+    paste0("Selected ID: ", indexIdDis())
+  })
+  
+ 
   ## Genetic distance
+  
   datGen<-reactive({
     if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-      genDistCl<-filter(genDat$genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
+      genDistCl<-filter(genDat$genDatNam, ptId1==indexIdDis() & dist<=input$genDist)$ptId2
+#      genDistCl<-filter(genDat$genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
       mvmtDat$datNamCoord <-
       mvmtDat$datNamCoord %>%
-        mutate(gendis=ifelse(ptId==input$genDIndex, "index", "N")) %>%
+        mutate(gendis=ifelse(ptId==indexIdDis(), "index", "N")) %>%
+#        mutate(gendis=ifelse(ptId==input$genDIndex, "index", "N")) %>%
         mutate(gendis=ifelse(ptId%in%genDistCl, "Y", gendis)) %>%
         mutate(gendis=factor(gendis, levels=c("index", "N", "Y")))
       mvmtDat$datNamCoord 
@@ -1541,6 +1572,7 @@ shinyServer(function(input, output, session) {
     return(content) 
   }
   ## Add to map
+  ### Also add to text box (index selector)
   observe({ 
     map<-leafletProxy("map")
     map %>% clearPopups()
@@ -1552,9 +1584,15 @@ shinyServer(function(input, output, session) {
         map %>% addPopups(lng=event$lng, lat=event$lat, 
                           popup=popContent(event$id),
                           options=popupOptions(closeOnClick=T))
+#        output$indexId<-renderText({paste0("Selected ID: ",event$id)})
+        
       })
     }
   })
+  
+
+  
+  
   
   # Link lines
   ## Epidemiological (infection period) links
@@ -1579,6 +1617,9 @@ shinyServer(function(input, output, session) {
     } else {NULL}
   })
   ## Genetic links
+  
+#  output$indexId<-renderText({paste0("Selected ID: ",input$map_marker_click$id)})
+  
   lnkGenLine<-reactive({
     lnkLin1<-as.data.frame(datFil())
     lnkLin1$nlink<-NA

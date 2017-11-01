@@ -296,16 +296,6 @@ body <- dashboardBody(
                                                                        onInitialize = I('function(){this.setValue("infec");}')
                                                                      )
                                                       ),
-                                                      conditionalPanel(condition="input.pl=='infec'",
-                                                                       numericInput('incMin', label='Minimum incubation period (days)', 
-                                                                                    min=0, value=c(1)),
-                                                                       numericInput('incMax', label='Maximum incubation period (days)', 
-                                                                                    min=0, value=4),
-                                                                       numericInput('sampDel', label='Sampling delay (days)', 
-                                                                                    min=0, value=1),
-                                                                       numericInput('infecLen', label='Infectious period (days)',
-                                                                                    min=0, value=4)
-                                                      ), 
                                                       conditionalPanel(condition="input.pl=='acq'",
                                                                        tags$div(class="header", checked=NA,
                                                                                 tags$strong("Define hospital acquired infection"), 
@@ -313,10 +303,6 @@ body <- dashboardBody(
                                                                        ),
                                                                        sliderInput('hospAcqLen', label=NA, 
                                                                                    min=1, max=5, value=1, step=1)
-                                                      ),
-                                                      conditionalPanel(condition="input.pl=='gendis'",
-                                                                       uiOutput("genDIndexUi"),
-                                                                       uiOutput("genDistUi")
                                                       )
                                      )
                             ),
@@ -338,6 +324,24 @@ body <- dashboardBody(
                                      ), 
                                      tags$style(type='text/css', " #ptidFilUi .selectize-input { font-size: 12px; line-height: 10px;} #ptidFilUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
                                      uiOutput("ptidFilUi")
+                            ),
+                            tabPanel(title="Links", value="lnkTab", 
+                                     p(strong("Click to select case")),
+                                     textOutput("indexId"),
+                                     p(strong("Epidemiological links")),
+                                     numericInput('incMin', label='Minimum incubation period (days)', 
+                                                  min=0, value=c(1)),
+                                     numericInput('incMax', label='Maximum incubation period (days)', 
+                                                  min=0, value=4),
+                                     numericInput('sampDel', label='Sampling delay (days)', 
+                                                  min=0, value=1),
+                                     numericInput('infecLen', label='Infectious period (days)',
+                                                  min=0, value=4), 
+                                     conditionalPanel(condition="input.pl=='gendis'",
+                                                      p(strong("Genetic links")),
+                                                      uiOutput("genDIndexUi"),
+                                                      uiOutput("genDistUi") 
+                                     )
                             )
                      )
               ),
