@@ -274,21 +274,14 @@ body <- dashboardBody(
     tabItem(tabName = "panPl", 
             fluidRow(
               column(width=4,
-                     actionButton("goPl", "Update"),  
-                     br(),
-                     br(),
+                     actionButton("goPl", "Update"), 
+                     uiOutput("dayUi"),
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disTab",
                                      uiOutput("wardFilUi"),  
                                      uiOutput("aspSliderUi"),
-                                     uiOutput("dayUi"),
-                                     checkboxGroupInput("planOpts", label = "Display",
-                                                        choices=c(
-                                                          "Ward labels" = "wardLabShow",  
-                                                          "Colour by patient characteristics" = "colByVar")
-                                     ),
-                                     conditionalPanel(condition="input.planOpts.includes('colByVar')",
-                                                      selectizeInput('pl', label='Characteristic', 
+                                     checkboxInput("wardLabShow", label = "Ward labels"),
+                                     selectizeInput('pl', label='Characteristic', 
                                                                      choices=c("ptId","infec","acq"),
                                                                      options=list(
                                                                        placeholder="Select variable",
@@ -303,7 +296,6 @@ body <- dashboardBody(
                                                                        sliderInput('hospAcqLen', label=NA, 
                                                                                    min=1, max=5, value=1, step=1)
                                                       )
-                                     )
                             ),
                             tabPanel(title="Filter", value="filTab",
                                      selectInput("acqFil", label="Place acquired", 
@@ -326,12 +318,15 @@ body <- dashboardBody(
                             ),
                             tabPanel(title="Links", value="lnkTab", 
                                      p(strong("Click to select case")),
-                                     textOutput("indexId"),
+                                     htmlOutput("indexId"),
                                      checkboxGroupInput("lnkDis", label = "",
                                                         choices=c(
                                                           "Potentially infected by" = "lnkInfecBy",
                                                           "Potentially infected" = "lnkInfected")
                                      ),
+                                     textOutput("jazzytext"),
+                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                      uiOutput("genDistUi")),
                                      p(strong("Epidemiological links")),
                                      numericInput('incMin', label='Minimum incubation period (days)', 
                                                   min=0, value=c(1)),
@@ -340,14 +335,10 @@ body <- dashboardBody(
                                      numericInput('sampDel', label='Sampling delay (days)', 
                                                   min=0, value=1),
                                      numericInput('infecLen', label='Infectious period (days)',
-                                                  min=0, value=4), 
-                                     conditionalPanel(condition="input.pl=='gendis'",
-                                                      p(strong("Genetic links")),
-                                                      uiOutput("genDIndexUi"),
-                                                      uiOutput("genDistUi") 
-                                     )
+                                                  min=0, value=4) 
                             )
                      )
+                     
               ),
               column(width=8,
                      box(width=NULL, status="primary",

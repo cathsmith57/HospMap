@@ -776,26 +776,27 @@ shinyServer(function(input, output, session) {
           "Infection period" = "infec", 
           "Patient ID" = "ptId",
           "Place acquired" = "acq",
-          "Genetic distance" = "gendis",
+#          "Genetic distance" = "gendis",
           input$catvars
         ))
         #### index case
-        output$genDIndexUi<-renderUI({
-          selectInput("genDIndex", label="Genetic distance index case", 
-                      choices=unique(mvmtDat$datNam$ptId), 
-                      selected=unique(mvmtDat$datNam$ptId)[1])
-        })
-        outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
+#        output$genDIndexUi<-renderUI({
+#          selectInput("genDIndex", label="Genetic distance index case", 
+#                      choices=unique(mvmtDat$datNam$ptId), 
+#                      selected=unique(mvmtDat$datNam$ptId)[1])
+#        })
+#        outputOptions(output, 'genDIndexUi', suspendWhenHidden=FALSE)
         #### genetic distance cutoff
+    
         output$genDistUi<-renderUI({
-          sliderInput('genDist', label= 'Genetic distance', 
-                      min=min(genDat$genDatNam[,'dist'], na.rm=T), max=max(genDat$genDatNam[,'dist'], na.rm=T), 
-                      value=min(genDat$genDatNam[,'dist'], na.rm=T))
+            sliderInput('genDist', label= 'Genetic distance', 
+                        min=min(genDat$genDatNam[,'dist'], na.rm=T), max=max(genDat$genDatNam[,'dist'], na.rm=T), 
+                        value=min(genDat$genDatNam[,'dist'], na.rm=T))  
         })
         outputOptions(output, 'genDistUi', suspendWhenHidden=FALSE)
       }
-      
-    })
+    
+   })
       
   #----------------------------------------
   # Epidemic curve tab
@@ -1380,15 +1381,27 @@ shinyServer(function(input, output, session) {
   })
   
   output$indexId<-renderText({
-    paste0("Selected ID: ", indexIdDis())
+    paste("Selected ID:","<font color=\"#FF0000\"><b>", indexIdDis(), "</b></font>") 
   })
   
- 
+  ## set initial genetic distance cut off as min in data
+  
+  genDist<-reactive({
+    if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
+      if(!"lnkGen" %in% input$lnkDis){
+        min(genDat$genDatNam[,'dist'], na.rm=T)
+      } else {
+        input$genDist
+      }
+    } else {NULL}
+  })
+  
   ## Genetic distance
   
   datGen<-reactive({
     if((input$datrad=="dum" | !is.null(genUser())) & input$genDis==TRUE){
-      genDistCl<-filter(genDat$genDatNam, ptId1==indexIdDis() & dist<=input$genDist)$ptId2
+      genDistCl<-filter(genDat$genDatNam, ptId1==indexIdDis() & dist<=genDist())$ptId2
+ #     genDistCl<-filter(genDat$genDatNam, ptId1==indexIdDis() & dist<=input$genDist)$ptId2
 #      genDistCl<-filter(genDat$genDatNam, ptId1==input$genDIndex & dist<=input$genDist)$ptId2
       mvmtDat$datNamCoord <-
       mvmtDat$datNamCoord %>%
@@ -1433,9 +1446,7 @@ shinyServer(function(input, output, session) {
   # Assign colours to points based on selected variable
   datCol<-reactive({
     datCol1<-datInf()
-    if(!("colByVar" %in% input$planOpts)){
-      datCol1$col<-"#3c8dbc"
-    }  else if(input$pl=="infec"){
+    if(input$pl=="infec"){
       cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
               brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
       )
@@ -1515,16 +1526,14 @@ shinyServer(function(input, output, session) {
         addCircleMarkers(data=datFil(), lng=~x, lat=~y, fillColor=~datFil()$col, radius=8, color="black",
                          weight=1, fillOpacity=1, layerId=~ptId)
       ## Ward labels
-      if("wardLabShow" %in% input$planOpts){
+      if(input$wardLabShow==TRUE){
         map %>% addLabelOnlyMarkers(data=planParams$wardLab, lng=~xMid, lat=~yMid, label=~htmlEscape(wardId),
                                     labelOptions=labelOptions(noHide=T,offset=c(0,-10), textOnly=T, 
                                                               style = list(
                                                                 "color" = "#3c8dbc",
                                                                 "font-size" = "15px")))}
       ## Points, coloured by selected variable 
-      if(!"colByVar" %in% input$planOpts){
-        map %>% clearControls()
-      } else if(input$pl=="infec"){
+      if(input$pl=="infec"){
         map %>% addLegend(position="bottomright", 
                           colors=c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6], 
                                    brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
@@ -1594,50 +1603,56 @@ shinyServer(function(input, output, session) {
   ## Epidemiological (infection period) links 
   ### Potentially infected BY:
   lnkInfecByLine<-reactive({
-    lnkLin1<-as.data.frame(datFil())
-    lnkLin1$nlink<-NA
-    for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="ExposurePeriod"]))){
-      ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
-      lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod"),])
-    }
-    if(sum(lnkLin1$nlink, na.rm=T)>0){
-      lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
-      lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
-      lnk$x1<-NA
-      lnk$y1<-NA
-      for(i in unique(lnk$ptId)){
-        ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
-        lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
-        lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+    if(nrow(datFil())>=1){
+      lnkLin1<-as.data.frame(datFil())
+      lnkLin1$nlink<-NA
+      for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="ExposurePeriod"]))){
+        ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+        lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod"),])
       }
-      lnk[lnk$ptId==indexIdDis(),]
+      if(sum(lnkLin1$nlink, na.rm=T)>0){
+        lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+        lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+        lnk$x1<-NA
+        lnk$y1<-NA
+        for(i in unique(lnk$ptId)){
+          ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+          lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+          lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="InfectiousPeriod")]
+        }
+        lnk[lnk$ptId==indexIdDis(),]
+      } else {NULL}
+      
     } else {NULL}
+    
   })
   
 
   ### Potentially infecTED:
   lnkInfectedLine<-reactive({
-    lnkLin1<-as.data.frame(datFil())
-    lnkLin1$nlink<-NA
-    for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="InfectiousPeriod"]))){
-      ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
-      lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod"),])
-    }
-    if(sum(lnkLin1$nlink, na.rm=T)>0){
-      lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
-      lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
-      lnk$x1<-NA
-      lnk$y1<-NA
-      for(i in unique(lnk$ptId)){
-        ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
-        lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod")]
-        lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod")]
+    if(nrow(datFil())>=1){
+      lnkLin1<-as.data.frame(datFil())
+      lnkLin1$nlink<-NA
+      for(i in (unique(lnkLin1$ptId[lnkLin1$infec=="InfectiousPeriod"]))){
+        ward<<-lnkLin1$wardId[lnkLin1$ptId==i]
+        lnkLin1$nlink[lnkLin1$ptId==i]<-nrow(lnkLin1[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod"),])
       }
-      lnk[lnk$ptId==indexIdDis(),]
+      if(sum(lnkLin1$nlink, na.rm=T)>0){
+        lnk<-lnkLin1[which(!is.na(lnkLin1$nlink)),c("ptId", "wardId", "nlink", "x", "y")]
+        lnk<-lnk[rep(row.names(lnk), lnk$nlink),]
+        lnk$x1<-NA
+        lnk$y1<-NA
+        for(i in unique(lnk$ptId)){
+          ward<<-unique(lnk$wardId[which(lnk$ptId==i)])
+          lnk$x1[which(lnk$ptId==i)]<-lnkLin1$x[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod")]
+          lnk$y1[which(lnk$ptId==i)]<-lnkLin1$y[which(lnkLin1$wardId==ward & lnkLin1$infec=="ExposurePeriod")]
+        }
+        lnk[lnk$ptId==indexIdDis(),]
+      } else {NULL}
     } else {NULL}
   })
   
-  
+#  output$jazzytable<-renderTable({lnkInfectedLine()})
   ## Genetic links
   
   lnkGenLine<-reactive({
@@ -1670,7 +1685,7 @@ shinyServer(function(input, output, session) {
           map %>%
             addPolylines(lng=as.numeric(lnkInfecByLine()[i,c("x","x1")]), 
                          lat=as.numeric(lnkInfecByLine()[i,c("y","y1")]), group="lnksInfecBy",
-                         color="red", opacity=0.5)
+                         color="orange", opacity=0.5)
         }
       } else {map %>%clearGroup("lnksInfecBy")}
     } else{
@@ -1686,7 +1701,7 @@ shinyServer(function(input, output, session) {
           map %>%
             addPolylines(lng=as.numeric(lnkInfectedLine()[i,c("x","x1")]), 
                          lat=as.numeric(lnkInfectedLine()[i,c("y","y1")]), group="lnkInfected",
-                         color="red", opacity=0.5)
+                         color="green", opacity=0.5)
         }
       } else {map %>%clearGroup("lnkInfected")}
     } else{
@@ -1710,7 +1725,6 @@ shinyServer(function(input, output, session) {
       map %>%
         clearGroup("lnksGen")}
   })
-  
 })
   
 
