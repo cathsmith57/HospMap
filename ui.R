@@ -92,7 +92,7 @@ body <- dashboardBody(
                                                       uiOutput("catvarUi")
                                      )  
                             ),
-                            tabPanel(title="Transitions", value="wardTab",
+                            tabPanel(title="Transfers", value="wardTab",
                                      conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
                                                       uiOutput("wardPtUi"),
                                                       uiOutput("wardidUi"),
@@ -116,7 +116,7 @@ body <- dashboardBody(
                                           tags$div(class="header", checked=NA,
                                                    tags$p("Core patient data")),
                                           fileInput('fileCore', label=NULL, accept=c("csv"))),
-                         checkboxInput("mvmt", label="Patient ward transitions", value=F),
+                         checkboxInput("mvmt", label="Patient ward transfers", value=F),
                          conditionalPanel(condition="input.mvmt & input.datrad=='user'", 
                                           fileInput("fileMvmt", label=NULL, accept=c("csv"))),
                          checkboxInput("genDis", label="Genetic distance", value=F), 
@@ -129,7 +129,7 @@ body <- dashboardBody(
                                                       div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
                                                           dataTableOutput('previewCore')))
                             ),
-                            tabPanel(title="Transitions", value="mvmtPrev",
+                            tabPanel(title="Transfers", value="mvmtPrev",
                                      conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
                                                       div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
                                                           dataTableOutput('previewMvmt')))

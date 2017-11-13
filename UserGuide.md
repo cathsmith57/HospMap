@@ -1,60 +1,56 @@
 # HospMapper User Guide
 
-HospMapper is an [R Shiny](https://shiny.rstudio.com/) application. 
+HospMapper is an [R Shiny](https://shiny.rstudio.com/) app. 
 
-To use, you need to have R[(https://www.r-project.org/)] installed on your machine. 
+To use, you need to have [R](https://www.r-project.org/) installed on your machine. 
 
-You then need to install the Shiny package: ```r install.pacakges("shiny")```
+You then need to install the Shiny package: ```install.pacakges("shiny")```, and load it: ```library(shiny)```.
 
+## Runnnig the app
+1. Create a new folder to act as your working directory. Set your working directory in R using: ```setwd("~path/name-of-folder")```
+2. Download two files that make up the app:[ui.R](https://github.com/cathsmith57/HospMap/blob/master/ui.R) and [server.R](https://github.com/cathsmith57/HospMap/tree/master/server.R) folder and save in your working directory.
+3. Run the app: ```runApp()```
 
-## Data requirements
-DotMapper uses two data files, examples of which are provided in the [Example data folder](https://github.com/cathsmith57/DotMapper/tree/master/Example%20data):
+## Example data
+When the app opens, a data input screen will load. To run the app with example data, select the 'Load dummy data' option. The example data sets and variable names will automatically be selected. Click 'Go' to view visualisations.  
 
-### cases 
-Details of cases in clusters, using one row per individual. Columns are variables of four types:
+## Loading data
 
-- Plotting variables 
-	- These are the characteristics of the cases that will be used to colour code plotted points, for example age, sex, ethnicity, risk factors. 
-	- Must be formatted as **factors**.
-	- Must be the first columns in the data set.
-	-- Variables can have any names but must have no spaces (e.g. "AgeGroup" instead of "Age Group")
-- IDs 
-	- *id* is the unique identifier for each case. 
-	- *clusterid* is the name of the cluster. DotMapper can be used to display one or multiple clusters.
-- Dates 
-	- *date* is the date of case report or notification. 
-	- Must be formatted day/month/year, for example "20/03/2015".
-- Geographic information 
-	- *lon* and *lat* are the longitude and latitude of case locations. 
-	- Alternatively, *loc* is a character string specifying a location, such as postcode (uses geocode function from ggmap package to generate lon and lat columns).
+HospMapper uses three data files, examples of which can be seen by running the application with the 'Dummy data' option selected.
+For each data set, click the 'Browse' button and navigate to the saved .csv file with your data. The file that you have selected will appear in the 'Preview data' section.
+The names of the columns in your dataset containing the key variables then need to be identified using the drop-downs in the 'Identify variables' section. 
 
-### venues (optional)
-Locations of contextual venues, such as clinics, food outlets, etc. Columns are variables of two types:
+These variables are:
 
-- IDs
-	- *id* is the unique identifier of each location. These must be different to the IDs used for cases.
-	- *name* is the name of the location.
-	- *type* is the type of location.
-- Geographic information 
-	- *lon* and *lat* are the longitude and latitude of venue locations. 
-	- Alternatively, *loc* is a character string specifying a location, such as postcode (uses geocode function from ggmap package to generate lon and lat columns).
+### Core data
+This is the minimum data set required to run the app. It is formatted as one row per individual with an infection and must contain:
 
+- Unique patient identifier.
+- Admission date - date on which patient was admitted to hospital.
+- Sample date - date on which sample that tested positive for infection was taken from patient.
+- Ward identifier - name of ward on which patient was staying when their positive sample was taken.
 
-**NB: ID, date and geographic information columns must be named as stated in *italics* above.**
+Optionally, it can also include categorical variables that describe the patient. For example, age group, sex, reason for admission to hospital, infection sub-type.
 
-**Missing data should be coded as NA.**
+### Ward transfers
+The dates that patients moved into and out of different wards during their hospital admission. This allows the timeline and hospital map visualisation to be produced. It is formatted as one row per ward per patient with an infection and must contain:
 
-## Running App
+- Patient identifier (must be the same as the identifiers used in core data).
+- Ward identifier - name of ward in which patient stayed.
+- Date into ward - date that patient was admitted to the ward.
+- Day out of ward - date that patient was discharged from the ward.
 
+Optionally, if known, the floor within the hospital that the ward is located can be specified. This will allow wards to be laid out on the map according to the floor that they are located on.
 
-1. Create a new folder to act as your working directory.
-2. Download the [FormatData.R](https://github.com/cathsmith57/DotMapper/blob/master/FormatData.R) script, and the [App](https://github.com/cathsmith57/DotMapper/tree/master/App) folder and save in your working directory.
-3. Open FormatData.R in R and locate the *Specify data parameters* section. There is one value that has to be set by the user:
-	- plVar - number of *Plotting variables* in the case data. For example, if you wish to be able to plot Age, Sex and Ethnicity, these are the first three columns in the cases data set, and plVar should be set to 3. In the example data set there are seven plotting variables, so plVar = 7.
-4. Run FormatData.R script. This will format the data and then run the shiny app.
+### Genetic distances
+The genetic distance between each patient's infection. This allows genetic links between patients to be visualised on the map. It is formatted as distances between each pair of patients in the data. For all pairs of patients it must have:
 
-## Notes
+- Identifier of patient one (must be the same as the identifiers used in core data).
+- Identifier of patient two (must be the same as the identifiers used in core data).
+- Genetic distance between infection of patients one and two.
 
-- If coordinates are not valid or location names fail to geocode, data for these cases will be included in summary tables and epidemic curves, but cases will not be plotted.
+## Viewing visualisations
+After you have clicked 'Go', the Bar Chart visualisation will load. If you have included ward transfers data, the timeline and map tabs will also be active. 
+
 
 
