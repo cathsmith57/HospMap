@@ -359,10 +359,10 @@ body <- dashboardBody(
                      box(width=NULL, status="primary",
                          uiOutput("mapInUi"),
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
-                         tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
-                         leafletOutput("map", width="100%", height=500)
-                     ),
-                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
+ #                        tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
+                         leafletOutput("map", width="100%", height=750)
+                     )
+#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
 #                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1")),
 #                     textOutput("jazzytext")  
               )

@@ -1281,7 +1281,7 @@ shinyServer(function(input, output, session) {
               labs(x=NULL,y=NULL, title=NULL) +
               coord_equal())
           dev.off()
-          list(src=plName, contentType="image/png", width=aspPr*500, height=500, alt="altText")
+          list(src=plName, contentType="image/png", width=aspPr*1000, height=1000, alt="altText")
         }, deleteFile=T)
         planParams$plPath<-plImage(session)$src
         
