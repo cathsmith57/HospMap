@@ -1,3 +1,19 @@
+#----------------------------------------
+# Check and load packages
+#----------------------------------------
+
+#list of packages required
+list.of.packages <- c("leaflet","shinydashboard","htmltools","htmlwidgets",
+                     "tidyr","dplyr","ggplot2","RColorBrewer","shinyjs","lubridate",
+                     "gtable","sp","ggrepel", "timevis")
+
+#checking missing packages from list
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+
+#install missing ones
+if(length(new.packages)) install.packages(new.packages, dependencies = TRUE)
+
+# load packages
 library(leaflet)
 library(shinydashboard)
 library(htmltools)
@@ -7,7 +23,6 @@ library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
 library(shinyjs)
-library(gridExtra)
 library(lubridate)
 library(gtable)
 library(sp)
