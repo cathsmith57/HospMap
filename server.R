@@ -556,7 +556,7 @@ shinyServer(function(input, output, session) {
   observeEvent({
     input$gen}, {
       
-      # Move focus to epicure panel
+      # Move focus to epicurve panel
       updateTabsetPanel(session, "pan", selected = "panEpi")
 
       # Rename and format variables for assigned columns
@@ -618,12 +618,12 @@ shinyServer(function(input, output, session) {
       ### patient characteristics - filter
       output$filVarsEpiUi<-renderUI({
         if(length(input$catvars)>=1){
-          lapply(c(1:length(input$catvars)), function(i) {
+          lapply(input$catvars, function(i) {
             selectInput(
               inputId=paste0("filEpi",i),
               label=input$catvars[i], 
-              choices=c(levels(coreDat$coreDatNam[,input$catvars[i]])),
-              selected=levels(coreDat$coreDatNam[,input$catvars[i]]),
+              choices=levels(coreDat$coreDatNam[,i]),
+              selected=levels(coreDat$coreDatNam[,i]),
               multiple=T)
           })
         }
@@ -658,12 +658,12 @@ shinyServer(function(input, output, session) {
       ### categorical vars
       output$filVarsTimeUi<-renderUI({
         if(length(input$catvars)>=1){
-          lapply(c(1:length(input$catvars)), function(i) {
+          lapply(input$catvars, function(i) {
             selectInput(
               inputId=paste0("filTime",i),
               label=input$catvars[i], 
-              choices=c(levels(coreDat$coreDatNam[,input$catvars[i]])),
-              selected=levels(coreDat$coreDatNam[,input$catvars[i]]),
+              choices=levels(coreDat$coreDatNam[,i]),
+              selected=levels(coreDat$coreDatNam[,i]),
               multiple=T)
           })
         }
@@ -744,22 +744,22 @@ shinyServer(function(input, output, session) {
       ### Filter variables
       output$filVarsUi<-renderUI({
         if(length(input$catvars)>=1){
-          lapply(c(1:length(input$catvars)), function(i) {
+          lapply(input$catvars, function(i) {
             selectInput(
               inputId=paste0("fil",i),
               label=input$catvars[i], 
-              choices=c(levels(coreDat$coreDatNam[,input$catvars[i]])),
-              selected=levels(coreDat$coreDatNam[,input$catvars[i]]),
+              choices=levels(coreDat$coreDatNam[,i]),
+              selected=levels(coreDat$coreDatNam[,i]),
               multiple=T)
           })
         }
       })
       outputOptions(output, "filVarsUi", suspendWhenHidden = FALSE)
       if(length(input$catvars)>=1){
-        lapply(c(1:length(input$catvars)), function(i){
+        lapply(input$catvars, function(i){
           updateSelectInput(session, paste0("fil",i),
-                            choices=levels(coreDat$coreDatNam[,input$catvars[i]]),
-                            selected=levels(coreDat$coreDatNam[,input$catvars[i]]))
+                            choices=levels(coreDat$coreDatNam[,i]),
+                            selected=levels(coreDat$coreDatNam[,i]))
         })
       }
       
@@ -886,8 +886,8 @@ shinyServer(function(input, output, session) {
         filter(wardSamp%in%input$wardEpi)
       
       if(length(input$catvars>=1)){
-        filGrps<-lapply(1:length(input$catvars), function(j){
-          datEpiFil1[,input$catvars[j]]%in%input[[paste0("filEpi",j)]]           
+        filGrps<-lapply(input$catvars, function(j){
+          datEpiFil1[,j]%in%input[[paste0("filEpi",j)]]           
         })
         filGrps<-Reduce("&", filGrps)  
         datEpiFil1<-datEpiFil1[which(filGrps),]
@@ -981,8 +981,8 @@ shinyServer(function(input, output, session) {
 
     ## filter by categorical inputs
     if(length(input$catvars>=1)){
-      filGrps<-lapply(1:length(input$catvars), function(j){
-        datTime1[,input$catvars[j]]%in%input[[paste0("filTime",j)]]           
+      filGrps<-lapply(input$catvars, function(j){
+        datTime1[,j]%in%input[[paste0("filTime",j)]]           
       })
       filGrps<-Reduce("&", filGrps)  
       datTime1<-datTime1[which(filGrps),]
@@ -1480,8 +1480,8 @@ shinyServer(function(input, output, session) {
   datFil<-reactive({
     datFil1<-datDay()
     if(length(input$catvars>=1)){
-      filGrps<-lapply(1:length(input$catvars), function(j){
-        datDay()[,input$catvars[j]]%in%input[[paste0("fil",j)]]           
+      filGrps<-lapply(input$catvars, function(j){
+        datDay()[,j]%in%input[[paste0("fil",j)]]           
       })
       filGrps<-Reduce("&", filGrps)  
       datFil1<-datFil1[which(filGrps),]
