@@ -6,10 +6,9 @@ To use, you need to have [R](https://www.r-project.org/) installed on your machi
 
 You then need to install the Shiny package: ```install.pacakges("shiny")```, and load it: ```library(shiny)```.
 
-## Runnnig the app
-1. Create a new folder to act as your working directory. Set your working directory in R using: ```setwd("~path/name-of-folder")```
-2. Download two files that make up the app:[ui.R](https://github.com/cathsmith57/HospMap/blob/master/ui.R) and [server.R](https://github.com/cathsmith57/HospMap/tree/master/server.R) folder and save in your working directory.
-3. Run the app: ```runApp()```
+## Running the app
+
+```runGitHub("HospMap", "cathsmith57", launch.browser=T)```
 
 ## Example data
 When the app opens, a data input screen will load. To run the app with example data, select the 'Load dummy data' option. The example data sets and variable names will automatically be selected. Click 'Go' to view visualisations.  

@@ -1,4 +1,14 @@
 shinyServer(function(input, output, session) {
+  #----------------------------------------
+  # Jazzy test tab
+  #----------------------------------------
+  
+  output$jazzymap<-renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(42, 16, 4)
+    
+  })
 
   #----------------------------------------
   # About tab

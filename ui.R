@@ -74,44 +74,7 @@ body <- dashboardBody(
     tabItem(tabName = "panIn",
             fluidRow(
               column(width=6,
-                     box(title="Load data", width=NULL, status="primary", solidHeader=TRUE,
-                         radioButtons("datrad", label="", 
-                                      choices=c("Upload data"= "user", "Load dummy data"="dum")), 
-                         tags$head(
-                           tags$style(HTML('#gen{background-color:orange}'))),
-                         actionButton("gen", "Go"),
-                         textOutput("warn")
-                     ),
-                     tabBox(title="Identify variables",width=NULL, side="left", height=550,
-                            tabPanel(title="Core", value="coreTab",
-                                     conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
-                                                      uiOutput("ptidUi"),
-                                                      uiOutput("admDateUi"),
-                                                      uiOutput("sampledateUi"),
-                                                      uiOutput("wardSampUi"),
-                                                      uiOutput("catvarUi")
-                                     )  
-                            ),
-                            tabPanel(title="Transfers", value="wardTab",
-                                     conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
-                                                      uiOutput("wardPtUi"),
-                                                      uiOutput("wardidUi"),
-                                                      uiOutput("dayinUi"),
-                                                      uiOutput("dayoutUi"), 
-                                                      uiOutput("floorUi")
-                                     )
-                            ),
-                            tabPanel(title="Genetic distance", value="genTab", 
-                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                      uiOutput("genPt1Ui"),
-                                                      uiOutput("genPt2Ui"),
-                                                      uiOutput("genPtDistUi")
-                                     )
-                            )
-                     )
-              ),
-              column(width=6, 
-                     box(title="Select files", width=NULL, status="primary", solidHeader=TRUE, 
+                     box(title="1. Load data", width=NULL, status="primary", solidHeader=TRUE, 
                          conditionalPanel(condition="input.datrad=='user'", 
                                           tags$div(class="header", checked=NA,
                                                    tags$p("Core patient data")),
@@ -122,28 +85,77 @@ body <- dashboardBody(
                          checkboxInput("genDis", label="Genetic distance", value=F), 
                          conditionalPanel(condition="input.genDis & input.datrad=='user'", 
                                           fileInput("fileGen", label=NULL, accept=c("csv")))
-                     ), 
-                     tabBox(title="Preview data",width=NULL, side="left", 
-                            tabPanel(title="Core", value="corePrev",
-                                     conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
-                                                      div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
-                                                          dataTableOutput('previewCore')))
-                            ),
-                            tabPanel(title="Transfers", value="mvmtPrev",
-                                     conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
-                                                      div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
-                                                          dataTableOutput('previewMvmt')))
-                            ),
-                            tabPanel(title="Genetic distance", value="genPrev", 
-                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                      div(style='overflow-x: scroll; height:500px; overflow-y: scroll', 
-                                                          dataTableOutput('previewGen')))
-                            )
+                     )
+              ),
+              column(width=6, 
+                         radioButtons("datrad", label="", 
+                                      choices=c("Upload data"= "user", "Load dummy data"="dum")), 
+                         tags$head(
+                           tags$style(HTML('#gen{background-color:orange}'))),
+                         actionButton("gen", "Go"),
+                         textOutput("warn")
+                     
+              )
+            ),
+            fluidRow(
+              column(width=6, 
+                     box(title="2. Preview data", width=NULL, status="primary", solidHeader=TRUE,
+                         tabBox(side="left", width=NULL, height=550,
+                                tabPanel(title="Core", value="corePrev",
+                                         conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
+                                                          div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
+                                                              dataTableOutput('previewCore')))
+                                ),
+                                tabPanel(title="Transfers", value="mvmtPrev",
+                                         conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
+                                                          div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
+                                                              dataTableOutput('previewMvmt')))
+                                ),
+                                tabPanel(title="Genetic distance", value="genPrev", 
+                                         conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                          div(style='overflow-x: scroll; height:500px; overflow-y: scroll', 
+                                                              dataTableOutput('previewGen')))
+                                )
+                         )
+                     )
+              ),
+              column(width=6,
+                     box(title = "3. Identify variables", width=NULL, status="primary", solidHeader=TRUE, 
+                         tabBox(side="left", height=550, width=NULL,
+                                tabPanel(title="Core", value="coreTab",
+                                         conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
+                                                          uiOutput("ptidUi"),
+                                                          uiOutput("admDateUi"),
+                                                          uiOutput("sampledateUi"),
+                                                          uiOutput("wardSampUi"),
+                                                          uiOutput("catvarUi")
+                                         )
+                                         
+                                ),
+                                tabPanel(title="Transfers", value="wardTab",
+                                         conditionalPanel(condition="(input.datrad=='dum' | output.mvmtFileUploaded) & input.mvmt",
+                                                          uiOutput("wardPtUi"),
+                                                          uiOutput("wardidUi"),
+                                                          uiOutput("dayinUi"),
+                                                          uiOutput("dayoutUi"), 
+                                                          uiOutput("floorUi")
+                                         )
+                                ),
+                                tabPanel(title="Genetic distance", value="genTab", 
+                                         conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                                                          uiOutput("genPt1Ui"),
+                                                          uiOutput("genPt2Ui"),
+                                                          uiOutput("genPtDistUi")
+                                         )
+                                )
+                         )
                      )
               )
             )
     ),
-        
+                     
+                     
+                    
     #----------------------------------------
     # Epidemic curve tab
     #----------------------------------------
