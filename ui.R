@@ -40,7 +40,31 @@ sidebar <- dashboardSidebar(
               menuItem(text="Input", tabName = "panIn", icon = icon("database"), selected=TRUE),
               menuItem(text="Bar chart", tabName = "panEpi", icon=icon("bar-chart")),
               menuItem(text="Timeline", tabName="panTime", icon=icon("clock-o")),
-              menuItem(text="Plan", tabName = "panPl", icon = icon("building"))
+              menuItem(text="Plan", tabName = "panPl", icon = icon("building")), 
+              conditionalPanel(condition="input.pan=='panEpi' || input.pan=='panTime' || input.pan=='panPl'",
+                               tags$br(), 
+                               tags$div(class="header", checked=NA,
+                                        tags$style(HTML(".header {margin-left: 5px;}")),
+                                        tags$strong("Define hospital acquired infection"), 
+                                        tags$p("Days from admission to sample")
+                               ),
+                               sliderInput('hospAcqLen', label=NA, 
+                                           min=1, max=5, value=1, step=1),
+                               tags$br(),
+                               tags$div(class="header", checked=NA,
+                                        tags$strong("Define infection period")
+                               ),
+                               numericInput('incMin', label='Min. incubation period (days)', 
+                                            min=0, value=c(1)),
+                               numericInput('incMax', label='Max. incubation period (days)', 
+                                            min=0, value=4),
+                               numericInput('sampDel', label='Sampling delay (days)', 
+                                            min=0, value=1),
+                               numericInput('infecLen', label='Infectious period (days)',
+                                            min=0, value=4)
+              ), 
+              conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
+                               uiOutput("genDistUi"))
               )
   )
 
@@ -93,14 +117,15 @@ body <- dashboardBody(
                          tags$head(
                            tags$style(HTML('#gen{background-color:orange}'))),
                          actionButton("gen", "Go"),
-                         textOutput("warn")
+                         textOutput("warn"), 
+                     textOutput("jazzytext")
                      
               )
             ),
             fluidRow(
               column(width=6, 
                      box(title="2. Preview data", width=NULL, status="primary", solidHeader=TRUE,
-                         tabBox(side="left", width=NULL, height=550,
+                         tabBox(side="left", width=NULL, height=560,
                                 tabPanel(title="Core", value="corePrev",
                                          conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
                                                           div(style = 'overflow-x: scroll; height:500px; overflow-y: scroll', 
@@ -121,13 +146,15 @@ body <- dashboardBody(
               ),
               column(width=6,
                      box(title = "3. Identify variables", width=NULL, status="primary", solidHeader=TRUE, 
-                         tabBox(side="left", height=550, width=NULL,
+                         tabBox(side="left", height=560, width=NULL,
                                 tabPanel(title="Core", value="coreTab",
                                          conditionalPanel(condition="input.datrad=='dum' | output.coreFileUploaded",
                                                           uiOutput("ptidUi"),
                                                           uiOutput("admDateUi"),
                                                           uiOutput("sampledateUi"),
+                                                          uiOutput("disDateUi"),
                                                           uiOutput("wardSampUi"),
+                                                          uiOutput("genClusUi"),
                                                           uiOutput("catvarUi")
                                          )
                                          
@@ -200,14 +227,6 @@ body <- dashboardBody(
                                                                        placeholder="Select variable",
                                                                        onInitialize = I('function(){this.setValue("acqEpi");}')
                                                                      )
-                                                      ), 
-                                                      conditionalPanel(condition="input.plEpi=='acqEpi'",
-                                                                       tags$div(class="header", checked=NA,
-                                                                                tags$strong("Define hospital acquired infection"), 
-                                                                                tags$p("Days from admission to sample")
-                                                                       ),
-                                                                       sliderInput('hospAcqLenEpi', label=NA, 
-                                                                                   min=1, max=5, value=1, step=1)
                                                       )
                                      )
                             ),
@@ -242,39 +261,24 @@ body <- dashboardBody(
                      br(),
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disTimeTab", 
+                                     checkboxInput("timeSamp", label="Sample date", value=TRUE),
+                                     checkboxInput("timeTL", label="Time line", value=TRUE),
                                      checkboxInput("timeLab", label="Labels", value=TRUE),
                                      radioButtons("orderTL", label="Order by:", 
                                                   choices=c("Admission date"= "admTL", 
                                                             "Sample date"="sampTL")),
                                      selectizeInput('plTime', label='Characteristic', 
-                                                    choices=c("ward", "infec", "acq"),
+                                                    choices=c("admis", "ward", "infec", "acq"),
                                                     options=list(
                                                       placeholder="Select variable",
-                                                      onInitialize = I('function(){this.setValue("ward");}')
+                                                      onInitialize = I('function(){this.setValue("admiss");}')
                                                     )
-                                     ),
-                                     conditionalPanel(condition="input.plTime=='infec'",
-                                                      numericInput('incMinTime', label='Minimum incubation period (days)', 
-                                                                   min=0, value=c(1)),
-                                                      numericInput('incMaxTime', label='Maximum incubation period (days)', 
-                                                                   min=0, value=4),
-                                                      numericInput('sampDelTime', label='Sampling delay (days)', 
-                                                                   min=0, value=1),
-                                                      numericInput('infecLenTime', label='Infectious period (days)',
-                                                                   min=0, value=4)
-                                     ), 
-                                     conditionalPanel(condition="input.plTime=='acq'",
-                                                      tags$div(class="header", checked=NA,
-                                                               tags$strong("Define hospital acquired infection"), 
-                                                               tags$p("Days from admission to sample")
-                                                      ),
-                                                      sliderInput('hospAcqLenTime', label=NA, 
-                                                                  min=1, max=5, value=1, step=1)
                                      )
                             ),
                             tabPanel(title="Filter", value="filTimeTab",
                                      tags$style(type='text/css', " #filIDTimeUi .selectize-input { font-size: 12px; line-height: 10px;} #filIDTimeUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
-                                     uiOutput("wardFilTimeUi"),
+                                     conditionalPanel(condition="input.mvmt",
+                                       uiOutput("wardFilTimeUi")),
                                      uiOutput("filVarsTimeUi"),
                                      uiOutput("filIDTimeUi")
                                      
@@ -283,13 +287,15 @@ body <- dashboardBody(
                      box(width=NULL,
                          status="primary",
                          tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;overflow-x: scroll; height:500px; overflow-y: scroll}
-                                    #tl .vis-item.vis-dot {border-color:black}
                                     "),
-                         timevisOutput("tl",height = 500, width="100%")
-                         #                   textOutput("jazzytext")
-                         #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable")),
-                         #                   div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1"))
-                     )
+                         plotOutput("tlnet")    
+#                         timevisOutput("tl",height = 500, width="100%")
+                     ), 
+                     
+                     
+                        tableOutput("jazzytable")
+
+#                        ) 
               )
             )
     ),
@@ -303,25 +309,20 @@ body <- dashboardBody(
               column(width=4,
                      actionButton("goPl", "Update"), 
                      uiOutput("dayUi"),
+                     p(strong("Click to select case")),
+                     htmlOutput("indexId"),
+                     tags$br(),
                      tabBox(width=NULL,
                             tabPanel(title="Display", value="disTab",
                                      uiOutput("wardFilUi"),  
                                      uiOutput("aspSliderUi"),
-                                     checkboxInput("wardLabShow", label = "Ward labels"),
+                                     checkboxInput("wardLabShow", label = "Ward labels", value=TRUE),
                                      selectizeInput('pl', label='Characteristic', 
                                                                      choices=c("ptId","infec","acq"),
                                                                      options=list(
                                                                        placeholder="Select variable",
                                                                        onInitialize = I('function(){this.setValue("infec");}')
                                                                      )
-                                                      ),
-                                                      conditionalPanel(condition="input.pl=='acq'",
-                                                                       tags$div(class="header", checked=NA,
-                                                                                tags$strong("Define hospital acquired infection"), 
-                                                                                tags$p("Days from admission to sample")
-                                                                       ),
-                                                                       sliderInput('hospAcqLen', label=NA, 
-                                                                                   min=1, max=5, value=1, step=1)
                                                       )
                             ),
                             tabPanel(title="Filter", value="filTab",
@@ -344,26 +345,13 @@ body <- dashboardBody(
                                      uiOutput("ptidFilUi")
                             ),
                             tabPanel(title="Links", value="lnkTab", 
-                                     p(strong("Click to select case")),
-                                     htmlOutput("indexId"),
                                      checkboxGroupInput("lnkDis", label = "",
                                                         choices=c(
                                                           "Potentially infected by" = "lnkInfecBy",
                                                           "Potentially infected" = "lnkInfected")
-                                     ),
-                                     textOutput("jazzytext"),
-                                     conditionalPanel(condition="(input.datrad=='dum' | output.genFileUploaded) & input.genDis",
-                                                      uiOutput("genDistUi")),
-                                     p(strong("Epidemiological links")),
-                                     numericInput('incMin', label='Minimum incubation period (days)', 
-                                                  min=0, value=c(1)),
-                                     numericInput('incMax', label='Maximum incubation period (days)', 
-                                                  min=0, value=4),
-                                     numericInput('sampDel', label='Sampling delay (days)', 
-                                                  min=0, value=1),
-                                     numericInput('infecLen', label='Infectious period (days)',
-                                                  min=0, value=4) 
+                                     )
                             )
+
                      )
                      
               ),
@@ -371,12 +359,8 @@ body <- dashboardBody(
                      box(width=NULL, status="primary",
                          uiOutput("mapInUi"),
                          tags$style(type='text/css', '#map {background: #F0F0F0;}'),
- #                        tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                          leafletOutput("map", width="100%", height=750)
                      )
-#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable"))
-#                     div(style='overflow-x: scroll; height:300px; overflow-y: scroll',tableOutput("jazzytable1")),
-#                     textOutput("jazzytext")  
               )
             )
     )
