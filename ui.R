@@ -177,7 +177,13 @@ body <- dashboardBody(
                                          )
                                 )
                          )
-                     )
+                     ),
+                     br(),
+                     br(),
+                     br(),
+                     br(),
+                     br(),
+                     br()
               )
             )
     ),

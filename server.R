@@ -97,8 +97,8 @@ shinyServer(function(input, output, session) {
     wardSamp=c("C", "C", "A", "A", "C", "A", "C", "A", "C", "B"), 
     admDat=dmy(c("1/1/2017", "03/1/2017", "02/1/2017", "07/1/2017", "04/1/2017", 
              "05/1/2017", "09/1/2017", "05/1/2017", "02/1/2017", "07/1/2017")),
-    disDat=ymd(c("2017-01-17", "2017-01-20", "2017-01-07", "2017-01-25", "2017-01-28", "2017-01-11", 
-                 "2017-01-19", "2017-01-17", "2017-01-27", "2017-01-25")),
+    disDat=dmy(c("17-01-2017", "20-01-2017", "07-01-2017", "25-01-2017", "28-01-2017", "11-01-2017", 
+                 "19-01-2017", "17-01-2017", "27-01-2017", "25-01-2017")),
     samp=dmy(c("14/1/2017", "7/1/2017","4/1/2017", "18/1/2017","13/1/2017",
            "10/1/2017", "12/1/2017","9/1/2017", "26/1/2017","19/1/2017")), 
     genClus=c(1,2,3,3,1,2,1,2,3,3),
@@ -615,11 +615,17 @@ shinyServer(function(input, output, session) {
       coreDat$coreDatNam<-coreDat$data()
       colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$ptid)]<-"ptId"
       colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$admDat)]<-"admDat"
+      colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$disdat)]<-"disDat"
       colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$sampledat)]<-"samp"  
       colnames(coreDat$coreDatNam)[which(colnames(coreDat$coreDatNam)==input$wardSamp)]<-"wardSamp"  
       
+      coreDat$coreDatNam$ptId<-as.character(coreDat$coreDatNam$ptId)
+      coreDat$coreDatNam$admDat<-as.character(coreDat$coreDatNam$admDat)
+      coreDat$coreDatNam$samp<-as.character(coreDat$coreDatNam$samp)
+      coreDat$coreDatNam$disDat<-as.character(coreDat$coreDatNam$disDat)
       coreDat$coreDatNam$admDat<-ymd(coreDat$coreDatNam$admDat)
       coreDat$coreDatNam$samp<-ymd(coreDat$coreDatNam$samp)
+      coreDat$coreDatNam$disDat<-ymd(coreDat$coreDatNam$disDat)
       coreDat$coreDatNam$wardSamp<-as.factor(coreDat$coreDatNam$wardSamp)
       
       if(length(c(input$catvars, input$genClus))>=1){
@@ -637,6 +643,9 @@ shinyServer(function(input, output, session) {
       colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$dayin)]<-"dayIn"  
       colnames(mvmtDat$datNam)[which(colnames(mvmtDat$datNam)==input$dayout)]<-"dayOut"  
       
+      mvmtDat$datNam$ptId<-as.character(mvmtDat$datNam$ptId)
+      mvmtDat$datNam$dayIn<-as.character(mvmtDat$datNam$dayIn)
+      mvmtDat$datNam$dayOut<-as.character(mvmtDat$datNam$dayOut)
       mvmtDat$datNam$dayIn<-ymd(mvmtDat$datNam$dayIn)
       mvmtDat$datNam$dayOut<-ymd(mvmtDat$datNam$dayOut)
       mvmtDat$datNam$wardId<-as.factor(mvmtDat$datNam$wardId)
@@ -1158,7 +1167,7 @@ shinyServer(function(input, output, session) {
         distinct()
     } else{
       datTimeSamp1<-as.data.frame(datTimeNet()) %>%
-        select(-dayIn, -dayOut, -wardId, -floor) %>%
+        select(-dayIn, -dayOut, -wardId) %>%
         distinct()
     }
     
@@ -1873,9 +1882,6 @@ shinyServer(function(input, output, session) {
       map<-leafletProxy("map")
       map %>%
         clearGroup("lnksClus")}
-    
-    
-    
   })
 })
   
