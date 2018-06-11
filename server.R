@@ -737,6 +737,7 @@ shinyServer(function(input, output, session) {
         "Ward" = "ward",
         "Infection period" = "infec"), selected="admis")
       
+
       ## Plan
       ### Wards to display in plan
       output$wardFilUi<-renderUI({
@@ -957,21 +958,20 @@ shinyServer(function(input, output, session) {
   xlabs<-eventReactive(epiTrig(),{input$xlabs})
   vertLab<-eventReactive(epiTrig(),{input$vertLab})
   plEpi<-eventReactive(epiTrig(),{input$plEpi})
-  plWid<-eventReactive(epiTrig(),{input$plWid})
-  plHt<-eventReactive(epiTrig(),{input$plHt})
   
   # Generate plot 
-  output$epiplotAll<-renderPlot({
+  output$epiplotAll<-renderPlotly({
     validate(need(nrow(datEpiFil())>=1, "No data selected - check filters"))
     epiymax<-max(datEpiFil()%>%
                    group_by(grpTot) %>%
                    summarise(tot=n()) %>%
                    ungroup() %>%
                    select(tot))
-    
+        
     if(colByVarEpi()==FALSE){
-      ggplot(datEpiFil())+
-        geom_histogram(aes(x=samp), breaks=as.numeric(brks()), col="white", fill="#3c8dbc", closed="left")+
+      p<-ggplot(datEpiFil())+
+        geom_histogram(aes(x=samp, y= ..count.., text=paste0("Count:", ..count..)), 
+                       breaks=brks(), col="white", fill="#3c8dbc", closed="left")+
         scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
                      date_breaks=xbrks(), date_labels=xlabs()
         )+
@@ -992,8 +992,10 @@ shinyServer(function(input, output, session) {
         labs(x="Sample date", y="Count")
       
     } else {
-      ggplot(datEpiFil())+
-        geom_histogram(aes(x=samp, fill=datEpiFil()[,plEpi()]), breaks=as.numeric(brks()), col="white", closed="left")+
+      p<-ggplot(datEpiFil())+
+        geom_histogram(aes(x=samp, fill=datEpiFil()[,plEpi()], 
+                           y= ..count.., text=paste0(fill, "<br>Count: ", ..count..)), 
+                       breaks=brks(), col="white", closed="left")+
         scale_fill_manual(values=unique(datEpiFil()$colEpi), name="")+
         scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
         scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
@@ -1004,7 +1006,6 @@ shinyServer(function(input, output, session) {
                      aes(x=x, xend=xend, y=y, yend=yend),
                      col="white")+
         theme(
-          legend.position="bottom",
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           axis.title.x=element_text(),
@@ -1013,8 +1014,15 @@ shinyServer(function(input, output, session) {
                                    vjust=ifelse(vertLab()==TRUE, 0.2, 0)),
           panel.background = element_rect(fill=NA, colour="black"))+
         labs(x="Sample date", y="Count")
+      
     }
-  }, width=exprToFunction(plWid()), height=exprToFunction(plHt()))
+    
+    ggplotly(p, tooltip=c("text")) %>%
+      layout(legend = list(orientation = 'h',  
+                           xanchor = "center",  
+                           x = 0.5, y=-0.2))
+    
+  })
   
   #----------------------------------------
   # Timeline tab
@@ -1025,163 +1033,7 @@ shinyServer(function(input, output, session) {
     paste(input$goTime, input$pan=="panTime")
   })
   
-  # Timeline data 
-  datTime<-eventReactive(timeTrig(),{
-    datTime1<-as.data.frame(mvmtDat$datNam)
-    datTime1$symStart<-datTime1$samp-input$sampDel
-    datTime1$expStart<-datTime1$symStart-input$incMax
-    datTime1$expEnd<-datTime1$symStart-input$incMin
-    datTime1$infecEnd<-datTime1$symStart+input$infecLen
-    datTime1<-datTime1[datTime1$ptId%in%input$ptId,]
 
-    ## filter by categorical inputs
-    if(length(c(input$catvars>=1, input$genClus))){
-      filGrps<-lapply(c(input$catvars, input$genClus), function(j){
-        datTime1[,j]%in%input[[paste0("filTime",j)]]           
-      })
-      filGrps<-Reduce("&", filGrps)  
-      datTime1<-datTime1[which(filGrps),]
-    }
-    
-    ## filter by selected wards and patient IDs
-    if(!(length(input$ptIdTime)>=1 & length(input$wardFilTime>=1))){
-      datTime1
-    } else {
-      datTime1<-
-        datTime1 %>%
-        filter(ptId %in% 
-                 (datTime1 %>%
-                    filter(wardId %in% input$wardFilTime)%>%
-                    distinct(ptId) %>% pull(ptId)
-                 ))
-      
-      ## assign colours
-      ### admission
-      if(input$plTime=="admis"){
-        datTime1$col<- "#3c8dbc"
-        #### format data for display with timeline package
-        if (nrow(datTime1)>=1){
-          datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
-          datTime1<-
-            datTime1 %>%
-            group_by(ptId) %>%
-            mutate(adm=min(dayIn), dis=max(dayOut)) %>%
-            ungroup() %>%
-            distinct(ptId, adm, dis, samp) %>%
-            mutate(wardId=" ") %>%
-            mutate(style="background: #3c8dbc; border-color:#3c8dbc;") %>%
-            rename(group=ptId, start=adm, end=dis, content=wardId) %>%
-            mutate(type="range") %>%
-            mutate(admDat=start) %>%
-            select(group, content, start, end, style, type, samp, admDat) 
-        }
-        ### colour by ward
-      } else if(input$plTime=="ward"){
-        suppressWarnings(
-          colRampT<-colorRampPalette(brewer.pal(length(levels(datTime1$wardId)), "Set1"))
-        )
-        colsT<-colRampT(length(levels(datTime1$wardId)))
-        factpalT <- colorFactor(colsT, datTime1$wardId)
-        datTime1$col<- factpalT(datTime1$wardId)
-        #### format data for display with timeline package
-        if (nrow(datTime1)>=1){
-          datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
-          datTime1<-
-            datTime1 %>%
-            rename(group=ptId, start=dayIn, end=dayOut, content=wardId) %>%
-            mutate(type="range") %>%
-            select(group, content, start, end, style, type, admDat, samp) 
-        }
-        ### colour by infection period
-      } else if(input$plTime=="infec"){
-        datTime1<-
-          datTime1 %>% 
-          group_by(ptId) %>%
-          mutate(adm=min(dayIn), dis=max(dayOut)) %>%
-          distinct(ptId, adm, dis, symStart, expStart, expEnd, infecEnd, admDat, samp)
-        #### truncate infection periods at admission.. 
-        datTime1$symStart[datTime1$symStart<datTime1$adm]<-datTime1$adm[datTime1$symStart<datTime1$adm]
-        datTime1$expStart[datTime1$expStart<datTime1$adm]<-datTime1$adm[datTime1$expStart<datTime1$adm]
-        datTime1$expEnd[datTime1$expEnd<datTime1$adm]<-datTime1$adm[datTime1$expEnd<datTime1$adm]
-        datTime1$infecEnd[datTime1$infecEnd<datTime1$adm]<-datTime1$adm[datTime1$infecEnd<datTime1$adm]
-        #### ... and discharge dates
-        datTime1$symStart[datTime1$symStart>datTime1$dis]<-datTime1$dis[datTime1$symStart>datTime1$dis]
-        datTime1$expStart[datTime1$expStart>datTime1$dis]<-datTime1$dis[datTime1$expStart>datTime1$dis]
-        datTime1$expEnd[datTime1$expEnd>datTime1$dis]<-datTime1$dis[datTime1$expEnd>datTime1$dis]
-        datTime1$infecEnd[datTime1$infecEnd>datTime1$dis]<-datTime1$dis[datTime1$infecEnd>datTime1$dis]
-        #### structure data by infection period
-        datTime1<-
-          data.frame(
-            ptId=rep(datTime1$ptId, 5),
-            admDat=rep(datTime1$admDat, 5),
-            samp=rep(datTime1$samp, 5),
-            per=rep(c("PreExposure", "Exposure", "Incubation", "Infectious", "PostInfectious"),
-                    each= length(unique(datTime1$ptId))), 
-            start=c(datTime1$adm, datTime1$expStart, datTime1$expEnd, datTime1$symStart, datTime1$infecEnd), 
-            end=c(datTime1$expStart, datTime1$expEnd, datTime1$symStart, datTime1$infecEnd, datTime1$dis)
-          ) %>% arrange(ptId)
-        #### generate colours
-        datTime1$per<-factor(datTime1$per, 
-                             levels=c("PreExposure", "Exposure", "Incubation", 
-                                      "Infectious", "PostInfectious"))
-        colsT<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
-                 brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7]
-        )
-        factpalT<-colorFactor(colsT, datTime1$per)
-        datTime1$col<-factpalT(datTime1$per)
-        #### format data for display with timeline package
-        if (nrow(datTime1)>=1){
-          datTime1$style<-paste0("background: ", datTime1$col, "; border-color:", datTime1$col,";")
-          
-          datTime1<-
-            datTime1 %>%
-            rename(group=ptId, start=start, end=end, content=per) %>%
-            mutate(type="range") %>%
-            select(group, content, start, end, style, type, admDat, samp) 
-        }
-      }
-      ## order by admission or sample dates
-      if(input$orderTL=="admTL"){
-        datTime1<-
-          arrange(datTime1, admDat)
-      }
-      if(input$orderTL=="sampTL"){
-        datTime1<-
-          arrange(datTime1, samp)
-      }
-      ## add labels
-      if(input$timeLab==TRUE){
-        datTime1
-      } else {
-        datTime1$content=""
-        datTime1
-      }
-    }
-  })
-  
-  # Sample dates
-  datTLSamp<-eventReactive(timeTrig(),{
-    datTLSamp1<-as.data.frame(datTime())
-    datTLSamp1 %>%
-      distinct(group, samp) %>%
-      rename(start=samp) %>%
-      mutate(content="", end=NA, style=NA, type="point", id=paste0("sampl", 1:n()))
-  })
-  
-  # Groups for time line
-  tGrp<-eventReactive(timeTrig(),{
-    if(input$timeLab==TRUE){
-      data.frame(
-        id=unique(datTime()$group),
-        content=unique(datTime()$group)
-      )
-    } else {
-      data.frame(
-        id=unique(datTime()$group),
-        content=unique(datTime()$group)
-      )
-    } 
-  })
   
   # Reactives for plot parameters 
   incMaxTime<-eventReactive(timeTrig(),{input$incMax})
@@ -1190,25 +1042,11 @@ shinyServer(function(input, output, session) {
   wardFilTime<-eventReactive(timeTrig(),{input$wardFil})
   sampDat<-eventReactive(timeTrig(),{input$sampDat})
   
-  # Generate plot
-  output$tl<-renderTimevis({
-    validate(need(nrow(datTime())>=1, "No data selected - check filters"))
-    validate(need(incMaxTime()>=incMinTime(), 
-                  "Maximum incubation period must not be shorter than minimum inubation period"))
-    validate(need(length(ptIdTime())>=1 & length(input$wardFilTime)>=1, "No data selected - check filters"))
-    timevis(data=datTime(), groups=tGrp(), options=list(stack=FALSE)) %>%
-      addItems(data=datTLSamp())
-  })
-  
-
-  
   
   # Timeline network
   
-  
   plTime<-eventReactive(timeTrig(),{input$plTime})
   plOrder<-eventReactive(timeTrig(),{input$orderTL})
-  
   
   datTimeNet<-eventReactive(timeTrig(),{
     datTimeNet1<-as.data.frame(mvmtDat$datNam)
@@ -1245,6 +1083,11 @@ shinyServer(function(input, output, session) {
       ### admission
       if(input$plTime=="admis" & nrow(datTimeNet1)>=1){
         datTimeNet1$col<- "#3c8dbc"
+        datTimeNet1<-
+          datTimeNet1 %>%
+          group_by(ptId) %>%
+          mutate(col="#3c8dbc",
+                 disDat=max(dayOut))
         
         ### colour by ward
       } else if(input$plTime=="ward"){
@@ -1307,17 +1150,27 @@ shinyServer(function(input, output, session) {
     }
   })
   
-#  output$jazzytable<-renderTable(datTimeNet())
+  datTimeSamp<-eventReactive(timeTrig(),{
+    
+    if(input$plTime=="infec"){
+      datTimeSamp1<-as.data.frame(datTimeNet()) %>%
+        select(-start, -end, -col, -per) %>%
+        distinct()
+    } else{
+      datTimeSamp1<-as.data.frame(datTimeNet()) %>%
+        select(-dayIn, -dayOut, -wardId, -floor) %>%
+        distinct()
+    }
+    
+  })
   
-  output$tlnet<-renderPlot({
+
+  output$tlnet<-renderPlotly({
     validate(need(nrow(datTimeNet())>=1, "No data selected - check filters"))
     validate(need(length(ptIdTime())>=1 & length(input$wardFilTime)>=1, "No data selected - check filters"))
     
     p<-ggplot()+
-      scale_color_manual(values=cols, name="")+
-      #        scale_y_continuous(limits=c(0, epiymax), breaks=seq(0, epiymax, 1))+
-      #        scale_x_date(limits=c(min(brks()), max(brks())), minor_breaks=brks(),
-      #                     date_breaks=xbrks(), date_labels=xlabs()+
+      scale_color_manual(values=cols, name="", guide=F)+
       theme_bw()+
       theme(
         legend.position="bottom",
@@ -1326,15 +1179,17 @@ shinyServer(function(input, output, session) {
         panel.grid.minor = element_blank(),
         axis.title.x=element_text(),
         axis.title.y=element_text(),
-        #          axis.text.x=element_text(angle=ifelse(vertLab()==TRUE, 90, 0), 
-        #                                   vjust=ifelse(vertLab()==TRUE, 0.2, 0)),
         panel.background = element_rect(fill=NA, colour="black"))+
       labs(x="Sample date", y="Count")
       
     if(input$timeTL==TRUE){
       if(plTime()=="admis"){
         p<-p+
-          geom_segment(data=datTimeNet(), aes(x=dayIn, xend=dayOut, y=ptId, yend=ptId), colour="#3c8dbc",size=3)
+          geom_segment(data=datTimeNet(), aes(x=admDat, xend=disDat, y=ptId, yend=ptId,
+                                              text=paste0( "ID: ", ptId, 
+                                                           "<br>Admitted: ", admDat,
+                                                          "<br>Discharged: ", disDat)), 
+                       colour="#3c8dbc",size=3)
         
       } else if(plTime()=="ward"){
         suppressWarnings(
@@ -1343,34 +1198,41 @@ shinyServer(function(input, output, session) {
         cols<-colRampT(length(levels(datTimeNet()$wardId)))
         names(cols)<-levels(datTimeNet()$wardId)
         p<-p+
-          geom_segment(data=datTimeNet(), aes(x=dayIn, xend=dayOut, y=ptId, yend=ptId, colour=wardId),size=3)
+          geom_segment(data=datTimeNet(), aes(x=dayIn, xend=dayOut, y=ptId, yend=ptId, colour=wardId,
+                                              text=paste0( "ID: ", ptId, 
+                                                           "Ward: ", wardId,
+                                                           "<br>Day in: ", dayIn,
+                                                           "<br>Day out: ", dayOut)),size=3)
       } else if(plTime()=="infec"){
         cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
                 brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7])
         names(cols)<-levels(datTimeNet()$per)
         p<-p+
-          geom_segment(data=datTimeNet(), aes(x=start, xend=end, y=ptId, yend=ptId, colour=per), size=3)
+          geom_segment(data=datTimeNet(), aes(x=start, xend=end, y=ptId, yend=ptId, colour=per,
+                                              text=paste0( "ID: ", ptId, 
+                                                           "<br>", per,
+                                                           "<br>Start day: ", start,
+                                                           "<br>End day: ", end)), size=3)
       }
     }
     if(input$timeSamp==TRUE){
-      p<-p+geom_point(data=datTimeNet(), aes(x=samp, y=ptId), colour="black", size=3, shape=21)
+        p<-p+geom_point(data=datTimeSamp(), aes(x=samp, y=ptId, 
+                                                text=paste0("Id: ", ptId, "<br>Sample date: ", samp)), 
+                                                fill="black", 
+                        colour="black", size=3, shape=21) 
+          
     } 
-    p
     
+    if(input$genClustTL==TRUE){
+      p<-p+geom_line(data=datTimeSamp(), aes(group=genClus, x=samp, y=ptId,
+                                             text=paste0("Cluster: ",genClus)))
+    }
 
-              
-        
-     
-  
-#}, width=exprToFunction(plWid()), height=exprToFunction(plHt()))
-      
-      
-
+    ggplotly(p, tooltip=c("text"))%>%
+      layout(legend = list(orientation = 'h',  
+                           xanchor = "center",  
+                           x = 0.5, y=-0.2))
   })   
- # }, width=exprToFunction(plWid()), height=exprToFunction(plHt()))
-  
-  
-  
   
   #----------------------------------------
   # Plan tab

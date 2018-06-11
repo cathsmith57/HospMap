@@ -28,6 +28,7 @@ library(gtable)
 library(sp)
 library(ggrepel)
 library(timevis)
+library(plotly)
 
 #----------------------------------------
 # Dashboard elements
@@ -180,8 +181,7 @@ body <- dashboardBody(
               )
             )
     ),
-                     
-                     
+                  
                     
     #----------------------------------------
     # Epidemic curve tab
@@ -217,8 +217,8 @@ body <- dashboardBody(
                                                  ), selected="%d %b"
                                      ),
                                      checkboxInput("vertLab", label="Vertical x axis labels", value=F),
-                                     sliderInput("plWid", label="Plot width (px)", min=50, max=1000, value=400),
-                                     sliderInput("plHt", label="Plot height (px)", min=50, max=1000, value=400), 
+                       #              sliderInput("plWid", label="Plot width (px)", min=50, max=1000, value=400),
+                      #               sliderInput("plHt", label="Plot height (px)", min=50, max=1000, value=400), 
                                      checkboxInput("colByVarEpi", label="Colour by patient characteristics", value=F),
                                      conditionalPanel(condition="input.colByVarEpi",
                                                       selectizeInput('plEpi', label='Characteristic', 
@@ -243,7 +243,7 @@ body <- dashboardBody(
               column(width=8,
                      box(width=NULL, status="primary", 
                          value="epiAll",
-                         plotOutput("epiplotAll", height="auto")
+                         plotlyOutput("epiplotAll", width="100%", height=500)
                      )
               )
             )
@@ -264,16 +264,20 @@ body <- dashboardBody(
                                      checkboxInput("timeSamp", label="Sample date", value=TRUE),
                                      checkboxInput("timeTL", label="Time line", value=TRUE),
                                      checkboxInput("timeLab", label="Labels", value=TRUE),
+                                     conditionalPanel(condition="input.genClus!=null",
+                                                      checkboxInput('genClustTL', label='Genetic clusters',
+                                                                    value=F)),
                                      radioButtons("orderTL", label="Order by:", 
                                                   choices=c("Admission date"= "admTL", 
                                                             "Sample date"="sampTL")),
                                      selectizeInput('plTime', label='Characteristic', 
-                                                    choices=c("admis", "ward", "infec", "acq"),
+                                                    choices=c("admis", "ward", "infec"),
                                                     options=list(
                                                       placeholder="Select variable",
                                                       onInitialize = I('function(){this.setValue("admiss");}')
                                                     )
                                      )
+                                     
                             ),
                             tabPanel(title="Filter", value="filTimeTab",
                                      tags$style(type='text/css', " #filIDTimeUi .selectize-input { font-size: 12px; line-height: 10px;} #filIDTimeUi.selectize-dropdown { font-size: 12px; line-height: 10px; }"),
@@ -288,14 +292,8 @@ body <- dashboardBody(
                          status="primary",
                          tags$style(type = "text/css", "#tl {height: calc(100vh - 80px) !important;overflow-x: scroll; height:500px; overflow-y: scroll}
                                     "),
-                         plotOutput("tlnet")    
-#                         timevisOutput("tl",height = 500, width="100%")
-                     ), 
-                     
-                     
-                        tableOutput("jazzytable")
-
-#                        ) 
+                         plotlyOutput("tlnet",height = 500, width="100%")    
+                     )
               )
             )
     ),
