@@ -1170,7 +1170,6 @@ shinyServer(function(input, output, session) {
         select(-dayIn, -dayOut, -wardId) %>%
         distinct()
     }
-    
   })
   
 
@@ -1189,7 +1188,7 @@ shinyServer(function(input, output, session) {
         axis.title.x=element_text(),
         axis.title.y=element_text(),
         panel.background = element_rect(fill=NA, colour="black"))+
-      labs(x="Sample date", y="Count")
+      labs(x="Sample date", y="ID")
       
     if(input$timeTL==TRUE){
       if(plTime()=="admis"){
@@ -1233,6 +1232,7 @@ shinyServer(function(input, output, session) {
     } 
     
     if(input$genClustTL==TRUE){
+
       p<-p+geom_line(data=datTimeSamp(), aes(group=genClus, x=samp, y=ptId,
                                              text=paste0("Cluster: ",genClus)))
     }
@@ -1305,7 +1305,7 @@ shinyServer(function(input, output, session) {
         if(input$floor==""){
           flrs<-data.frame(
             wardId=unique(plan$wardId),
-            nFloor=rep(1:round(length(unique(plan$wardId))/2),each=2)[1:length(unique(plan$wardId))]
+            nFloor=rep(1:ceiling(length(unique(plan$wardId))/2),each=2)[1:length(unique(plan$wardId))]
           )
           plan<-
             left_join(plan, flrs, by="wardId")
@@ -1526,6 +1526,7 @@ shinyServer(function(input, output, session) {
     } else {mvmtDat$datNamCoord}
   })
   
+    
   ## Infection period and hosp acquired  
   datInf<-reactive({
     validate(need(nrow(datGen())>=1, "No wards selected"))
