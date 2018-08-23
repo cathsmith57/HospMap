@@ -352,7 +352,8 @@ body <- dashboardBody(
                                      checkboxGroupInput("lnkDis", label = "",
                                                         choices=c(
                                                           "Potentially infected by" = "lnkInfecBy",
-                                                          "Potentially infected" = "lnkInfected")
+                                                          "Potentially infected" = "lnkInfected", 
+                                                          "Epidemiological link (ever)" = "lnkEpi")
                                      )
                             )
 
@@ -366,6 +367,9 @@ body <- dashboardBody(
                          leafletOutput("map", width="100%", height=750)
                      )
               )
+#              ),div(style='width:500px; overflow-x: scroll; height:500px; overflow-y: scroll', 
+#                    dataTableOutput('jazzytext1'))
+
             )
     )
 

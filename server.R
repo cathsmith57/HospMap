@@ -825,6 +825,7 @@ shinyServer(function(input, output, session) {
                                  choices=c(
                                    "Potentially infected by" = "lnkInfecBy",
                                    "Potentially infected" = "lnkInfected", 
+                                   "Epidemiological link (ever)" = "lnkEpi",
                                    "Genetic/ molecular cluster" = "lnkClus", 
                                    "Genetic distance links" = "lnkGen")
         ) 
@@ -836,6 +837,7 @@ shinyServer(function(input, output, session) {
                                  choices=c(
                                    "Potentially infected by" = "lnkInfecBy",
                                    "Potentially infected" = "lnkInfected", 
+                                   "Epidemiological link (ever)" = "lnkEpi",
                                    "Genetic/ molecular cluster" = "lnkClus")
         ) 
       }
@@ -846,6 +848,7 @@ shinyServer(function(input, output, session) {
                                  choices=c(
                                    "Potentially infected by" = "lnkInfecBy",
                                    "Potentially infected" = "lnkInfected", 
+                                   "Epidemiological link (ever)" = "lnkEpi",
                                    "Genetic distance links" = "lnkGen")
         ) 
       }
@@ -1025,6 +1028,7 @@ shinyServer(function(input, output, session) {
         labs(x="Sample date", y="Count")
       
     }
+    p$elementId<-NULL
     
     ggplotly(p, tooltip=c("text")) %>%
       layout(legend = list(orientation = 'h',  
@@ -1236,6 +1240,8 @@ shinyServer(function(input, output, session) {
       p<-p+geom_line(data=datTimeSamp(), aes(group=genClus, x=samp, y=ptId,
                                              text=paste0("Cluster: ",genClus)))
     }
+    
+    p$elementId<-NULL
 
     ggplotly(p, tooltip=c("text"))%>%
       layout(legend = list(orientation = 'h',  
@@ -1557,6 +1563,51 @@ shinyServer(function(input, output, session) {
     as.data.frame(datInf1)
   })
   
+  ## Link groups
+  datLnkGrp<-reactive({
+    lnkGrp1<-
+      mvmtDat$datNamCoord %>%
+      select(ptId, wardId, samp, dayIn, dayOut) %>%
+      group_by(row_number()) %>%
+      complete(dayIn=seq.Date(min(dayIn), max(dayOut), by="day")) %>%
+      fill(ptId, wardId, dayIn, samp) %>%
+      ungroup() %>%
+      select(ptId, date=dayIn, wardId, samp) %>%
+      mutate(grp=group_indices(., wardId, date)) %>%
+      add_count(grp) %>%
+      mutate(
+        sym_start=samp-input$sampDel, 
+        exp_start=sym_start-input$incMax, 
+        exp_end=sym_start-input$incMin, 
+        infec_end=sym_start+input$infecLen, 
+        infec=case_when(
+          date<exp_start ~ "PreExposure", 
+          date>exp_start & date<=exp_end ~"ExposurePeriod", 
+          date>exp_end & date<sym_start ~ "IncubationPeriod", 
+          date>=sym_start & date <= infec_end ~ "InfectiousPeriod", 
+          date>infec_end ~ "PostInfectious"
+        ), 
+        infec=factor(infec, levels=c("PreExposure", "ExposurePeriod", "IncubationPeriod", 
+                                     "InfectiousPeriod", "PostInfectious"))
+      ) %>%
+      filter(infec %in% c("ExposurePeriod", "InfectiousPeriod")) %>%
+      add_count(grp)  %>% 
+      filter(n>1) %>% 
+      select(ptId, grp, infec)
+    
+      lnkGrp1 %>%
+      left_join(lnkGrp1, by="grp") %>%
+      filter(ptId.x!=ptId.y) %>%
+      filter(infec.x!=infec.y) %>%
+      rowwise() %>%
+      mutate(ptId.x=as.character(ptId.x), ptId.y=as.character(ptId.y)) %>%
+      mutate(name = toString(sort(c(ptId.x, ptId.y)))) %>%
+      select(name) %>%
+      distinct() %>%
+      separate(name, into=c("ptId1", "ptId2"))
+  })
+  
+  
   # Assign colours to points based on selected variable
   datCol<-reactive({
     datCol1<-datInf()
@@ -1773,6 +1824,19 @@ shinyServer(function(input, output, session) {
     } else {NULL}
   })
   
+  ## epi link at any time
+  lnkEpiEver<-reactive({
+    if(nrow(datFil())>=1){
+      lnkLin2<-as.data.frame(datFil()) %>% select(ptId, x, y)
+      lnkLin1<-as.data.frame(datLnkGrp()) %>%
+        left_join(lnkLin2 %>% rename(ptId1=ptId) %>% mutate(ptId1=as.character(ptId1)), by="ptId1") %>%
+        rename(x1=x, y1=y) %>% 
+        left_join(lnkLin2 %>% rename(ptId2=ptId) %>% mutate(ptId2=as.character(ptId2)), by="ptId2") %>%
+        rename(x2=x, y2=y) %>%
+        filter(!is.na(x1) & !is.na(x2))
+        lnkLin1
+    } else {NULL}
+  })
 
   ## Genetic distance links
   
@@ -1883,6 +1947,25 @@ shinyServer(function(input, output, session) {
       map<-leafletProxy("map")
       map %>%
         clearGroup("lnksClus")}
+    
+    
+    if("lnkEpi" %in% input$lnkDis){
+      map<-leafletProxy("map")
+      if(!is.null(lnkEpiEver())){
+        map<-map%>%clearGroup("lnksEpi")
+        for(i in 1:nrow(lnkEpiEver())){
+          map %>%
+            addPolylines(lng=as.numeric(lnkEpiEver()[i,c("x1","x2")]), 
+                         lat=as.numeric(lnkEpiEver()[i,c("y1","y2")]), group="lnksEpi",
+                         color="black", opacity=0.5)
+        }
+      } else {map %>%clearGroup("lnksEpi")}
+    } else{
+      map<-leafletProxy("map")
+      map %>%
+        clearGroup("lnksEpi")}
+    
+    
   })
 })
   
