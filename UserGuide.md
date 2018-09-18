@@ -4,7 +4,7 @@ HospMapper is an [R Shiny](https://shiny.rstudio.com/) app.
 
 To use, you need to have [R](https://www.r-project.org/) installed on your machine. 
 
-You then need to install the Shiny package: ```install.pacakges("shiny")```, and load it: ```library(shiny)```.
+You then need to install the Shiny package: ```install.packages("shiny")```, and load it: ```library(shiny)```.
 
 ## Running the app
 
