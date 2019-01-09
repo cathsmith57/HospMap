@@ -1182,7 +1182,7 @@ shinyServer(function(input, output, session) {
     validate(need(length(ptIdTime())>=1 & length(input$wardFilTime)>=1, "No data selected - check filters"))
     
     p<-ggplot()+
-      scale_color_manual(values=cols, name="", guide=F)+
+ #     scale_color_manual(values=cols, name="", guide=F)+
       theme_bw()+
       theme(
         legend.position="bottom",
@@ -1214,7 +1214,9 @@ shinyServer(function(input, output, session) {
                                               text=paste0( "ID: ", ptId, 
                                                            "Ward: ", wardId,
                                                            "<br>Day in: ", dayIn,
-                                                           "<br>Day out: ", dayOut)),size=3)
+                                                           "<br>Day out: ", dayOut)),size=3)+
+          scale_color_manual(values=cols, name="", guide=F)
+        
       } else if(plTime()=="infec"){
         cols<-c(brewer.pal(9, "Paired")[3], brewer.pal(9, "Paired")[4], brewer.pal(11, "Spectral")[6],
                 brewer.pal(9, "Paired")[8], brewer.pal(9, "Paired")[7])
@@ -1224,14 +1226,15 @@ shinyServer(function(input, output, session) {
                                               text=paste0( "ID: ", ptId, 
                                                            "<br>", per,
                                                            "<br>Start day: ", start,
-                                                           "<br>End day: ", end)), size=3)
+                                                           "<br>End day: ", end)), size=3)+
+          scale_color_manual(values=cols, name="", guide=F)
       }
     }
     if(input$timeSamp==TRUE){
         p<-p+geom_point(data=datTimeSamp(), aes(x=samp, y=ptId, 
                                                 text=paste0("Id: ", ptId, "<br>Sample date: ", samp)), 
                                                 fill="black", 
-                        colour="black", size=3, shape=21) 
+                        colour="black", size=3, shape=21)
           
     } 
     
